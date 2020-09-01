@@ -18,3 +18,6 @@ echo "[TASK 5] Setting up krew"
 
 echo "[TASK 6] appending krew path to /home/$(logname)/.bashrc"
 echo "export PATH='${KREW_ROOT:-/home/$(logname)/.krew}/bin:$PATH'" >> /home/$(logname)/.bashrc
+
+echo "[TASK 7] Re-load shell"
+exec $SHELL
