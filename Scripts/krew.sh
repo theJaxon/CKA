@@ -21,3 +21,8 @@ echo "export PATH='${KREW_ROOT:-/home/$(logname)/.krew}/bin:$PATH'" >> /home/$(l
 
 echo "[TASK 7] Re-load shell"
 exec $SHELL
+
+echo "[Task 8] Install kubectx and kubens"
+kubectl krew install ctx ns
+
+echo "You can now use kubectl ctx | kubectl ns"
