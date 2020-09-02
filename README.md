@@ -36,6 +36,9 @@ kubectl get po
 # Pods in a different NS
 kubectl get po --namespace=name
 
+# Pods on a specific Node [1]
+kubectl get pods --all-namespaces -o wide --field-selector spec.nodeName=<node>
+
 # Services
 kubectl get svc
 
@@ -57,6 +60,7 @@ kubectl get ns
 | ReplicaSet 	|   apps/v1  	|
 | Deployment 	|   apps/v1  	|
 |  Namespace 	|     v1     	|
+|   Service  	|     v1     	|
 
 </p>
 </details>
@@ -88,3 +92,7 @@ address assigned:
   * 192.168.50.222
 * API LB:
   * 192.168.50.230
+
+Useful Resources:
+
+1- [Get Pods on specific node](https://stackoverflow.com/a/50811992)
