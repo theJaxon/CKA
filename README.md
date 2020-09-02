@@ -30,6 +30,9 @@ kubectl get all
 # Replicasets
 kubectl get rs
 
+# DaemonSets
+kubectl get ds
+
 # Pods in the current NS
 kubectl get po
 
@@ -50,6 +53,44 @@ kubectl get ns
 </p>
 </details>
 
+
+<details>
+<summary>kubectl delete commands</summary>
+<p>
+
+```bash
+# Delete pod
+kubectl delete pod <name>
+```
+
+
+</p>
+</details>
+
+Filtering using selector:
+```bash
+kubectl get po --selector app=<appname>
+```
+
+Filtering using label:
+```bash
+kubectl get po -l env=dev
+```
+
+* You can use multiple labels too, just use a comma to separate
+```bash
+kubeclt get po -l env=dev,app=my-app,function=backend
+```
+
+Adding Label to Node:
+```bash
+kubectl label nodes kworker1.example.com size=Large
+```
+
+Deleting Label from Node:
+```bash
+kubectl lable nodes kworker1.example.com size-
+```
 
 <details>
 <summary>apiVersion</summary>
