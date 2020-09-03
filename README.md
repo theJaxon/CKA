@@ -3,6 +3,20 @@ An environment made as a preparation for the Certified Kubernetes Administrator 
 
 ---
 
+### [Important kubectl commands](https://blog.heptio.com/kubectl-explain-heptioprotip-ee883992a243):
+
+```bash
+kubectl explain deploy
+
+
+# Check all fields in a resource
+kubectl explain <resource> --recursive # resource can be pod, deployment, ReplicaSet etc
+
+kubectl explain deploy.spec.strategy
+```
+
+---
+
 Dry run and validate 
 
 ```
@@ -40,13 +54,20 @@ kubectl get po
 kubectl get po --namespace=name
 
 # Pods on a specific Node [1]
-kubectl get pods --all-namespaces -o wide --field-selector spec.nodeName=<node>
+# --all-namespaces shorthand is -A
+kubectl get pods -Ao wide --field-selector spec.nodeName=<node>
 
 # Services
 kubectl get svc
 
 # Namespaces
 kubectl get ns
+
+# List all events in the current NS
+kubectl get events
+
+# Deployments
+kubectl get deploy
 
 ```
 
@@ -90,6 +111,23 @@ kubectl label nodes kworker1.example.com size=Large
 Deleting Label from Node:
 ```bash
 kubectl lable nodes kworker1.example.com size-
+```
+
+View scheduler logs
+```bash
+kubectl logs custom-scheduler --name-space=kube-system
+```
+
+Deployment rollout commands:
+```bash
+# In a nutshell
+kubectl rollot [stats/history] deploy/name
+
+# Check rollout status 
+kubectl rollout status deploy/name
+
+# Check history of changes made to that deployment
+kubectl rollout history deploy/name
 ```
 
 <details>
