@@ -41,6 +41,12 @@ kubectl create namsepace NS-name
 # View all objects
 kubectl get all
 
+# ConfigMaps
+kubectl get cm
+
+# Secrets
+kubectl get secret
+
 # Replicasets
 kubectl get rs
 
@@ -62,6 +68,9 @@ kubectl get svc
 
 # Namespaces
 kubectl get ns
+
+# Nodes
+kubectl get no
 
 # List all events in the current NS
 kubectl get events
@@ -121,14 +130,54 @@ kubectl logs custom-scheduler --name-space=kube-system
 Deployment rollout commands:
 ```bash
 # In a nutshell
-kubectl rollot [stats/history] deploy/name
+kubectl rollot [undo/stats/history] deploy/name
 
 # Check rollout status 
 kubectl rollout status deploy/name
 
 # Check history of changes made to that deployment
 kubectl rollout history deploy/name
+
+# Revert to previous version
+kubectl rollout undo deploy/name
 ```
+
+Editing already deployed files can be done using
+```
+kubectl edit deploy name
+```
+
+---
+
+Cluster Maintenance commands:
+```bash
+# Mark node as unusable 
+kubectl drain <node>
+
+OR 
+
+kubectl cordon <node>
+
+# Remove the drain restriction
+kubectl uncordon <node>
+```
+
+Cordon Vs drain:
+- Cordon doesn't terminate existing pods on the node but it prevents creation of any new pods on that node
+- Drain terminates those pods and they get allocated to a different node
+
+Upgrading a cluster:
+```bash
+kubeadm upgrade plan
+kubeadm upgrade apply
+```
+
+Backup resource configuration:
+```bash
+kubectl get all -Ao yaml > all_resources.yml
+```
+
+---
 
 <details>
 <summary>apiVersion</summary>
