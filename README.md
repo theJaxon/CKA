@@ -1,5 +1,5 @@
 # CKA
-An environment made as a preparation for the Certified Kubernetes Administrator exam [CKA v1.8]
+An environment made as a preparation for the Certified Kubernetes Administrator exam [CKA v1.19]
 
 ---
 
@@ -149,7 +149,10 @@ kubectl edit deploy name
 
 ---
 
-Cluster Maintenance commands:
+<details>
+<summary>Cluster Maintenance</summary>
+<p>
+
 ```bash
 # Mark node as unusable 
 kubectl drain <node>
@@ -173,9 +176,20 @@ kubeadm upgrade apply
 ```
 
 Backup resource configuration:
+1- Backup all resources 
 ```bash
 kubectl get all -Ao yaml > all_resources.yml
 ```
+>  Implement etcd backup and restore
+
+2- Use etcdctl to backup the etcd server
+```bash
+ETCD_API=3 etcdctl snapshot save snapshot.db
+```
+
+</p>
+</details>
+
 
 ---
 
