@@ -13,6 +13,22 @@ kubectl explain deploy
 kubectl explain <resource> --recursive # resource can be pod, deployment, ReplicaSet etc
 
 kubectl explain deploy.spec.strategy
+
+kubectl config -h
+
+kubectl proxy # runs on port 8001 by default 
+# use curl http://localhost:8801 -k to see a list of API groups
+```
+
+---
+
+### Important Directories:
+```bash
+/etc/kubernetes/pki/ # Here all certs and keys are stored
+
+/etc/kubernetes/manifests/ # Here all config files are located
+
+$HOME/.kube/config # --kubeconfig file
 ```
 
 ---
@@ -41,14 +57,26 @@ kubectl create namsepace NS-name
 # View all objects
 kubectl get all
 
+# cluster Roles
+kubectl get clusterroles
+
 # ConfigMaps
 kubectl get cm
+
+# Certificates Signing Request
+kubectl get csr
 
 # Secrets
 kubectl get secret
 
 # Replicasets
 kubectl get rs
+
+# Roles
+kubectl get roles
+
+# RoleBinding
+kubectl get rolebindings
 
 # DaemonSets
 kubectl get ds
@@ -180,11 +208,101 @@ Backup resource configuration:
 ```bash
 kubectl get all -Ao yaml > all_resources.yml
 ```
->  Implement etcd backup and restore
+> :bell: Implement etcd backup and restore :bell:
 
 2- Use etcdctl to backup the etcd server
 ```bash
 ETCD_API=3 etcdctl snapshot save snapshot.db
+```
+
+</p>
+</details>
+
+
+---
+
+<details>
+<summary>Security</summary>
+<p>
+
+> :bell: Create and manage TLS certificates for cluster components :bell:
+
+1- Certificate authority [CA]
+```bash
+# Generate Keys
+openssl genrsa -out ca.key 2048
+
+# Certificate Signing Request 
+openssl req -new -key ca.key -subj "/CN-KUBERNETES-CA" -out ca.csr
+
+# Sign certificates 
+openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt
+```
+
+2- Client certificates [admin user]
+```bash
+openssl genrsa -out admin.key 2048
+openssl req -new -key admin.key -subj "/CN=kube-admin/O=system:masters" -out admin.csr 
+openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -out admin.crt
+```
+
+3- Kube-API server 
+```bash
+openssl requ -new -key apiserver.key -subj "CN=/kube-apiserver" -out apiserver.csr
+```
+
+View certificate details
+```
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
+```
+
+View etcd logs (if setup was done using kubeadm):
+```
+kubectl logs etcd-master
+```
+
+Approving certificate signing request:
+```
+kubectl certificate approve <name>
+```
+
+View `kube-config` file:
+```
+kubectl config view
+```
+
+Change default context:
+```bash
+kubectl config use-context user@cluster
+# This changes default context in the file as well so now current-context: user@cluster
+```
+
+Check given access permissions with `can-i`:
+```bash
+
+kubectl auth can-i <verb> <object>
+
+kubectl auth can-i create deployments
+
+kubectl auth can-i delete nodes
+
+# use can-i as another user 
+kubectl auth can-i create pods --as <user-name>
+
+# use can-i as another user and test a different namespace 
+kubectl auth can-i create pods --as <user> --namespace <name>
+```
+
+Get api resources:
+```bash
+# All api-resources
+kubectl api-resources 
+
+# Namespaced api-resources
+kubectl api-resources --namespaced=true
+
+# Non namespaced api-resources
+kubectl api-resources --namespaced=false
 ```
 
 </p>
@@ -203,6 +321,7 @@ ETCD_API=3 etcdctl snapshot save snapshot.db
 | Deployment 	|   apps/v1  	|
 |  Namespace 	|     v1     	|
 |   Service  	|     v1     	|
+|   Config   	|     v1     	|
 
 </p>
 </details>
