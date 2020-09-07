@@ -29,6 +29,8 @@ kubectl proxy # runs on port 8001 by default
 /etc/kubernetes/manifests/ # Here all config files are located
 
 $HOME/.kube/config # --kubeconfig file
+
+/var/lib/docker # ["aufs", "containers", "image", "volumes"]
 ```
 
 ---
@@ -86,6 +88,12 @@ kubectl get po
 
 # Pods in a different NS
 kubectl get po --namespace=name
+
+# Persistent Volume
+kubectl get pv
+
+# Persistent Volume Claim
+kubectl get pvc
 
 # Pods on a specific Node [1]
 # --all-namespaces shorthand is -A
