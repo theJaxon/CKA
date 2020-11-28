@@ -3,11 +3,83 @@ An environment made as a preparation for the Certified Kubernetes Administrator 
 
 ---
 
+### :pencil: Objectives:
+
+<details>
+<summary>1- Cluster Architecture, Installation & Configuration 25%</b></summary>
+<p>
+
+1. Manage role based access control (RBAC)
+2. Use Kubeadm to install a basic cluster
+3. Manage a highly-available Kubernetes cluster
+4. Provision underlying infrastructure to deploy a Kubernetes cluster
+5. Perform a version upgrade on a Kubernetes cluster using Kubeadm
+6. Implement etcd backup and restore
+
+</p>
+</details>
+
+
+<details>
+<summary>2- Workloads & Scheduling 15%</b></summary>
+<p>
+
+1. Understand deployments and how to perform rolling update and rollbacks
+2. Use ConfigMaps and Secrets to configure applications
+3. Know how to scale applications
+4. Understand the primitives used to create robust, self-healing, application deployments [Probes]
+5. Understand how resource limits can affect Pod scheduling [resources for pods and quota for namespaces]
+6. Awareness of manifest management and common templating tools
+
+</p>
+</details>
+
+<details>
+<summary>3- Services & Networking 20%</b></summary>
+<p>
+
+1. Understand host networking configuration on the cluster nodes
+2. Understand connectivity between Pods
+3. Understand ClusterIP, NodePort, LoadBalancer service types and endpoints
+4. Know how to use Ingress controllers and Ingress resources
+5. Know how to configure and use CoreDNS
+6. Choose an appropriate container network interface plugin
+
+</p>
+</details>
+
+<details>
+<summary>4- Storage 10%</b></summary>
+<p>
+
+1. Understand storage classes, persistent volumes
+2. Understand volume mode, access modes and reclaim policies for volumes
+3. Understand persistent volume claims primitive
+4. Know how to configure applications with persistent storage
+
+</p>
+</details>
+
+<details>
+<summary>5- Troubleshooting 30%</b></summary>
+<p>
+
+1. Evaluate cluster and node logging
+2. Understand how to monitor applications
+3. Manage container stdout & stderr logs
+4. Troubleshoot application failure
+5. Troubleshoot cluster component failure
+6. Troubleshoot networking
+
+</p>
+</details>
+
+---
+
 ### [Important kubectl commands](https://blog.heptio.com/kubectl-explain-heptioprotip-ee883992a243):
 
 ```bash
 kubectl explain deploy
-
 
 # Check all fields in a resource
 kubectl explain <resource> --recursive # resource can be pod, deployment, ReplicaSet etc
@@ -18,11 +90,15 @@ kubectl config -h
 
 kubectl proxy # runs on port 8001 by default 
 # use curl http://localhost:8801 -k to see a list of API groups
+
+# NOT kubectl but useful
+journalctl -u kube-apiserver
+
 ```
 
 ---
 
-### Important Directories:
+### :file_folder: Important Directories:
 ```bash
 /etc/kubernetes/pki/ # Here all certs and keys are stored
 
@@ -31,7 +107,17 @@ kubectl proxy # runs on port 8001 by default
 $HOME/.kube/config # --kubeconfig file
 
 /var/lib/docker # ["aufs", "containers", "image", "volumes"]
+
+/var/logs/containers # logs are stored here 
 ```
+
+---
+
+### Important Documentation page sections:
+
+- [kubeadm check required ports](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#check-required-ports) 
+
+- [Application Introspection and Debugging](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application-introspection/)
 
 ---
 
@@ -48,7 +134,7 @@ kubectl replace -f fileName.yml
 
 Create a Namespace
 ```
-kubectl create namsepace NS-name
+k create ns <name>
 ```
 
 <details>
@@ -56,8 +142,20 @@ kubectl create namsepace NS-name
 <p>
 
 ```bash
+# View additional details
+kubectl get <object> -o wide
+
 # View all objects
 kubectl get all
+
+# show labesl 
+kubectl get po --show-labels
+
+# Filter pod output 
+kubectl get po --field-selector status.phase=Running
+
+# Multi conditional filtering
+kubectl get po --field-selector=status.phase=Running,metadata.namespace=default
 
 # cluster Roles
 kubectl get clusterroles
@@ -67,6 +165,9 @@ kubectl get cm
 
 # Certificates Signing Request
 kubectl get csr
+
+# Endpoint
+kubectl get ep
 
 # Secrets
 kubectl get secret
@@ -88,6 +189,9 @@ kubectl get po
 
 # Pods in a different NS
 kubectl get po --namespace=name
+
+# Get pods on all namespaces 
+kubectl get po -A
 
 # Persistent Volume
 kubectl get pv
@@ -120,47 +224,25 @@ kubectl get deploy
 </details>
 
 
-<details>
-<summary>kubectl delete commands</summary>
-<p>
-
+Filtering using selector or label:
 ```bash
-# Delete pod
-kubectl delete pod <name>
-```
-
-
-</p>
-</details>
-
-Filtering using selector:
-```bash
-kubectl get po --selector app=<appname>
-```
-
-Filtering using label:
-```bash
-kubectl get po -l env=dev
+k get po --selector k=v
+k get po -l k=v
 ```
 
 * You can use multiple labels too, just use a comma to separate
 ```bash
-kubeclt get po -l env=dev,app=my-app,function=backend
+k get po -l env=dev,app=my-app,function=backend
 ```
 
 Adding Label to Node:
 ```bash
-kubectl label nodes kworker1.example.com size=Large
+k label nodes kworker1.example.com size=Large
 ```
 
 Deleting Label from Node:
 ```bash
-kubectl lable nodes kworker1.example.com size-
-```
-
-View scheduler logs
-```bash
-kubectl logs custom-scheduler --name-space=kube-system
+k label nodes kworker1.example.com size-
 ```
 
 Deployment rollout commands:
@@ -319,49 +401,35 @@ kubectl api-resources --namespaced=false
 
 ---
 
-<details>
-<summary>apiVersion</summary>
-<p>
+#### JSON Path queries:
+```bash
+# First view the returned output from the command, you will narrow this output down
+kubectl get <object> -o json 
 
-|    Kind    	| apiVersion 	|
-|:----------:	|:----------:	|
-| ReplicaSet 	|   apps/v1  	|
-| Deployment 	|   apps/v1  	|
-|  Namespace 	|     v1     	|
-|   Service  	|     v1     	|
-|   Config   	|     v1     	|
+# Filter the output
+kubectl get pods -o=jsonpath='{.items[0].spec.containers[0].image}'
 
-</p>
-</details>
+# You can query more than one item at a time
+kubectl get po -o=jsonpath='{.items[*].metadata.name}{.items[*].status.capacity.cpu}'
+
+# Prettifying the output using tabs or newlines
+kubectl get po -o=jsonpath='{.items[*].metadata.name}{"\n"}{.items[*].status.capacity.cpu}'
+
+# Loops 
+'{range .items[*]}
+  {.metadata.name}{"\t"} {.status.capacity.cpu}{"\n"}
+{end}
+'
+
+# FInal form
+kubectl get nodes -o=jsonpath='{range .items[*]} {.metadata.name} {"\t"} {.status.capacity.cpu} {"\n"} {end}'
+
+# Custom column iteration
+kubectl get nodes  -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cpu
+
+```
 
 ---
 
 Components:
 ReplicaSet: Requires a `selector` that helps RS identify what pods fall under it
-
----
-
-Requirements for Master:
-- git
-- krew
-
-Servers initiated by vagrant
-- 2 K8s Controllers
-- 2 K8s Worker nodes
-- 1 K8s API Load Balancer
-
-OS Used is `bento/centos-8`
-
-address assigned:
-* Controller Nodes:
-  * 192.168.50.211
-  * 192.168.50.212
-* Worker Nodes:
-  * 192.168.50.221
-  * 192.168.50.222
-* API LB:
-  * 192.168.50.230
-
-Useful Resources:
-
-1- [Get Pods on specific node](https://stackoverflow.com/a/50811992)
