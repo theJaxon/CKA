@@ -1,4 +1,7 @@
 # CKA
+![CKA](https://img.shields.io/badge/-CKA-0690FA?style=for-the-badge&logo=kubernetes&logoColor=white)
+![K8s](https://img.shields.io/badge/-kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+
 An environment made as a preparation for the Certified Kubernetes Administrator exam [CKA v1.19]
 
 ---
@@ -76,6 +79,21 @@ An environment made as a preparation for the Certified Kubernetes Administrator 
 
 ---
 
+### Cluster components:
+Kubernetes cluster consists of one or more master nodes + one or more worker nodes, the master node components are called `Control plane`.
+
+#### Control plane components:
+- **kube-api** server
+- **etcd** Key value store
+- **kube-scheduler** that allocates nodes for pods
+- **kube-controller-manager** and there are different types of controllers like `replication controller`, `endpoints controller`, `service account controller` and `Token controller`
+
+#### Worker nodes components:
+- **Kubelet** Ensures pods are running on the nodes
+- **kube-proxy** Maintains network rules on the nodes to keep `SVCs` working. 
+
+---
+
 ### [Important kubectl commands](https://blog.heptio.com/kubectl-explain-heptioprotip-ee883992a243):
 
 ```bash
@@ -94,15 +112,21 @@ kubectl proxy # runs on port 8001 by default
 # NOT kubectl but useful
 journalctl -u kube-apiserver
 
-```
+# Dry run and validate
+kubectl apply -f fileName.yml --validate --dry-run=client
 
+```
 ---
 
 ### :file_folder: Important Directories:
 ```bash
 /etc/kubernetes/pki/ # Here all certs and keys are stored
 
-/etc/kubernetes/manifests/ # Here all config files are located
+/etc/kubernetes/manifests # Here all config files are located
+  /etcd.yaml
+  /kube-apiserver.yaml
+  /kube-controller-manager.yaml
+  /kube-scheduler.yaml
 
 $HOME/.kube/config # --kubeconfig file
 
@@ -121,148 +145,43 @@ $HOME/.kube/config # --kubeconfig file
 
 ---
 
-Dry run and validate 
+### :bulb: Imperative usage of kubectl command:
+```bash
+# View api-resources 
+k api-resources -h
 
-```
-kubectl apply -f fileName.yml --validate --dry-run=client
-```
+# View only the namespaced api-resources
+k api-resources --namespaced=True
 
-Re-run the file after updating values:
-```
-kubectl replace -f fileName.yml
-```
+# Add annotation to deployment
+k annotate deploy/<name> k=v
 
-Create a Namespace
-```
+# Create namespace 
 k create ns <name>
-```
 
-<details>
-<summary>kubectl get commands</summary>
-<p>
+# Delete resource 
+k delete <resource> --force --grace-period=0 
 
-```bash
-# View additional details
-kubectl get <object> -o wide
+# Get using labels, either --selector or -l followed by key value pairs
+k get po --selector | -l k=v # Can be done for multiple labels just separate using a comman k=v,k=v etc
 
-# View all objects
-kubectl get all
+# Get pods with the same label across all namespaces [-A is short for --all-namespaces]
+k get po -l k=v -A
 
-# show labesl 
-kubectl get po --show-labels
+## Labelling
+# Label a node
+k label nodes <node-name> k=v
 
-# Filter pod output 
-kubectl get po --field-selector status.phase=Running
+# Delete a lable from the node
+k label nodes <node-name> k-
 
-# Multi conditional filtering
-kubectl get po --field-selector=status.phase=Running,metadata.namespace=default
+## Rollout commands
+k rollout -h 
+k rollout [history/pause/restart/resume/status/undo] deploy/<name>
 
-# cluster Roles
-kubectl get clusterroles
+# View details of a specific revision
+k rollout history deploy/<name> --revision=<number>
 
-# ConfigMaps
-kubectl get cm
-
-# Certificates Signing Request
-kubectl get csr
-
-# Endpoint
-kubectl get ep
-
-# Secrets
-kubectl get secret
-
-# Replicasets
-kubectl get rs
-
-# Roles
-kubectl get roles
-
-# RoleBinding
-kubectl get rolebindings
-
-# DaemonSets
-kubectl get ds
-
-# Pods in the current NS
-kubectl get po
-
-# Pods in a different NS
-kubectl get po --namespace=name
-
-# Get pods on all namespaces 
-kubectl get po -A
-
-# Persistent Volume
-kubectl get pv
-
-# Persistent Volume Claim
-kubectl get pvc
-
-# Pods on a specific Node [1]
-# --all-namespaces shorthand is -A
-kubectl get pods -Ao wide --field-selector spec.nodeName=<node>
-
-# Services
-kubectl get svc
-
-# Namespaces
-kubectl get ns
-
-# Nodes
-kubectl get no
-
-# List all events in the current NS
-kubectl get events
-
-# Deployments
-kubectl get deploy
-
-```
-
-</p>
-</details>
-
-
-Filtering using selector or label:
-```bash
-k get po --selector k=v
-k get po -l k=v
-```
-
-* You can use multiple labels too, just use a comma to separate
-```bash
-k get po -l env=dev,app=my-app,function=backend
-```
-
-Adding Label to Node:
-```bash
-k label nodes kworker1.example.com size=Large
-```
-
-Deleting Label from Node:
-```bash
-k label nodes kworker1.example.com size-
-```
-
-Deployment rollout commands:
-```bash
-# In a nutshell
-kubectl rollot [undo/stats/history] deploy/name
-
-# Check rollout status 
-kubectl rollout status deploy/name
-
-# Check history of changes made to that deployment
-kubectl rollout history deploy/name
-
-# Revert to previous version
-kubectl rollout undo deploy/name
-```
-
-Editing already deployed files can be done using
-```
-kubectl edit deploy name
 ```
 
 ---
@@ -383,18 +302,6 @@ kubectl auth can-i create pods --as <user-name>
 kubectl auth can-i create pods --as <user> --namespace <name>
 ```
 
-Get api resources:
-```bash
-# All api-resources
-kubectl api-resources 
-
-# Namespaced api-resources
-kubectl api-resources --namespaced=true
-
-# Non namespaced api-resources
-kubectl api-resources --namespaced=false
-```
-
 </p>
 </details>
 
@@ -431,5 +338,42 @@ kubectl get nodes  -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cp
 
 ---
 
-Components:
-ReplicaSet: Requires a `selector` that helps RS identify what pods fall under it
+### :diamonds: Storage: 
+
+.pod.spec.containers.volumeMounts
+  . readOny: True 
+
+---
+
+### :diamonds: Troubleshooting:
+
+#### :gem: Evaluate cluster and node logging:
+
+```bash
+# View kubelet logs 
+journalctl -u kubelet
+
+# View logs for core componentes 
+cd /var/log/containers 
+cat $(ls kube-proxy*) | tail -n 1
+cat $(ls coredns*) | tail -n 1
+cat $(ls kube-apiserver*) | tail -n 1
+
+# View kube-system ns pods
+k get po -n kube-system
+
+k logs <name> -n kube-system
+
+k describe po etcd-controller -n kube-system
+
+# Switch to kube-system namespace 
+k config set-context --current --namespace=kube-system
+```
+
+#### :gem: Manage container stdout & stderr logs:
+```bash
+# View logs from all containers with specific label in a specific ns 
+k logs -l k=v --all-containers -n <ns> 
+
+
+```
