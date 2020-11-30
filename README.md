@@ -168,6 +168,11 @@ k get po --selector | -l k=v # Can be done for multiple labels just separate usi
 # Get pods with the same label across all namespaces [-A is short for --all-namespaces]
 k get po -l k=v -A
 
+# Run a pod 
+k run <name> --image=<name> -o yaml --dry-run=client > <name>.yml
+k apply -f <name>.yml
+
+
 ## Labelling
 # Label a node
 k label nodes <node-name> k=v
@@ -342,6 +347,122 @@ kubectl get nodes  -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cp
 
 .pod.spec.containers.volumeMounts
   . readOny: True 
+
+---
+
+### :diamonds: Workloads & Scheduling:
+
+#### :gem:  Understand deployments and how to perform rolling update and rollbacks:
+
+```bash
+k create deploy/<name> --image=<name> --replicas=1
+k rollout status deploy/<name>
+
+k rollout history deploy/<name>
+
+# Manually annotate the current revision
+k annotate deploy/<name> kubernetes.io/change-cause="Initial deployment"
+
+# Annotate the upcoming revision using the specified command 
+k set image deploy/<name> name=<image> --record
+
+# Rollback help
+k rollout undo -h
+
+# Rollback to the last revision 
+k rollout undo deploy/<name>
+
+# Rollback to specific revision with the --to-revision flag
+k rollout undo deploy/<name> --to-revision=<number>
+
+
+```
+
+<details>
+<summary>k explain deploy.spec.strategy.rollingUpdate</summary>
+<p>
+
+```bash
+.maxSurge # Max no of pods above the desired limit [For the new revision]
+.maxUnavailable # Max no of pods that can be absent from the old revision during the rollout
+```
+
+</p>
+</details>
+
+
+#### :gem:  Awareness of manifest management and common templating tools:
+**pod.spec**:
+There are many fields under the `containers` in the spec, the most signifacnt ones are:
+1. **Scheduling**: This helps in selecting the node where the pod will be deployed to either directly through `nodeName` , `nodeSelector` which uses a lable or using `affinity` and `tolerations`
+
+2. **SecurityContext**: defines security attributes like `runAsUser`, `capabilites`
+```bash
+k explain pod.spec.containers.securityContext
+
+# There's also securityContext available at the spec level 
+k explain pod.spec.securityContext
+```
+
+<details>
+<summary>k explain pod.spec</summary>
+<p>
+
+```bash
+.securityContext.runAsUser
+```
+
+</p>
+</details>
+
+<details>
+<summary>k explain pod.spec.containers</summary>
+<p>
+
+```bash
+.securityContext.capabilites
+```
+
+</p>
+</details>
+
+3. **Lifecycle** 
+  . `restartPolicy`: defines action taken after the termination of a pod.
+  . `terminationGracePeriodSeconds`: fine-tune the periods after which processes running in the containers of a terminating pod are killed, The grace period is the duration in seconds after the processes running in the pod are sent a termination signal and the time when the processes are forcibly halted with a kill signal.
+  . `activeDeadlineSeconds` Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers
+
+<details>
+<summary>k explain pod.spec</summary>
+<p>
+
+```bash
+.restartPolicy
+.terminationGracePeriodSeconds
+.activeDeadlineSeconds
+```
+
+</p>
+</details>
+
+4. **ServiceAccount**: Gives specific rights to pods using a specific `serviceAccountName`
+
+5. Hostname & Name resolution: 
+`hostAliases`: List of hosts and IPs that gets added to `/etc/hosts` file.
+`dnsConfig`:  Specifies the DNS parameters of a pod and update `/etc/resolv.conf`
+`hostname`: Specifies the hostname of the Pod If not specified
+
+<details>
+<summary>k explain pod.spec</summary>
+<p>
+
+```bash
+.dnsConfig
+.hostAliases
+```
+
+</p>
+</details>
+
 
 ---
 
