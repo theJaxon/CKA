@@ -159,6 +159,32 @@ k annotate deploy/<name> k=v
 # Create namespace 
 k create ns <name>
 
+# Create deployment and set an env variable for it
+k create deploy <name> --image=<name> 
+k set env deploy/<name> K=v
+
+# Create ConfigMap from env varibales and use it in a deployment
+k create cm <name> --from-literal=K=v --from-literal=K=v 
+k set env deploy/<name> --from=cm/<name>
+
+# Those key value pairs can be stored in a .env file and also be used 
+k create cm <name> --from-env-file=<name>.env
+k set env deploy/<name> --from=cm/<name>
+
+# Limit the values that will be used from a configMap using --keys option
+k set env deploy/<name> --from=cm/<name> --keys="key,key" 
+
+# Set resources for deployment 
+k set resources -h 
+k set resources deploy/<name> --requests=cpu=200m,memory=512Mi --limits=cpu=500m,memory=1Gi
+
+# Create HorizontalPodAutoscaler resource [HPA] for a deployment
+k autoscale deploy <name> --min=<number> --max=<number> --cpu-percent=<number>
+k get hpa
+
+# Create a secret 
+k create secret generic <name> --from-literal=K=v
+
 # Delete resource 
 k delete <resource> --force --grace-period=0 
 
@@ -171,6 +197,9 @@ k get po -l k=v -A
 # Run a pod 
 k run <name> --image=<name> -o yaml --dry-run=client > <name>.yml
 k apply -f <name>.yml
+
+# Define an env variable for a pod using --env
+k run <name> --image=<name> --env K=v --env K=v -o yaml --dry-run=client 
 
 
 ## Labelling
@@ -186,6 +215,9 @@ k rollout [history/pause/restart/resume/status/undo] deploy/<name>
 
 # View details of a specific revision
 k rollout history deploy/<name> --revision=<number>
+
+# Scale replicas of a deployment 
+k scale deploy/<name> --replicas=<number>
 
 ```
 
@@ -342,6 +374,63 @@ kubectl get nodes  -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cp
 ```
 
 ---
+### Referencing Values:
+#### From pod fields:
+
+<details>
+<summary>metadata</b></summary>
+<p>
+
+.name
+.namespace
+.uid
+
+</p>
+</details>
+
+<details>
+<summary>spec</b></summary>
+<p>
+
+.nodeName
+.serviceAccountName
+
+</p>
+</details>
+
+<details>
+<summary>status</b></summary>
+<p>
+
+.hostIP
+.podIP
+
+</p>
+</details>
+
+---
+
+#### From container resources fields:
+
+<details>
+<summary>requests</b></summary>
+<p>
+
+.cpu
+.memory
+
+</p>
+</details>
+
+<details>
+<summary>limits</b></summary>
+<p>
+
+.cpu
+.memory
+
+</p>
+</details>
 
 ### :diamonds: Storage: 
 
@@ -352,7 +441,7 @@ kubectl get nodes  -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cp
 
 ### :diamonds: Workloads & Scheduling:
 
-#### :gem:  Understand deployments and how to perform rolling update and rollbacks:
+#### :gem:  1- Understand deployments and how to perform rolling update and rollbacks:
 
 ```bash
 k create deploy/<name> --image=<name> --replicas=1
@@ -389,6 +478,23 @@ k rollout undo deploy/<name> --to-revision=<number>
 
 </p>
 </details>
+
+#### :gem: 2- Use ConfigMaps and Secrets to configure applications
+:mag: Search the docs for:
+```bash
+#Configmap volume
+also can be reached via 
+k explain pod.spec.volumes.configmap
+```
+
+#### :gem: 3- Know how to scale applications
+```bash
+# Scale a deployment 
+k scale deploy/<name> --replicas=<number>
+
+# Conditionally scale using hpa 
+k autoscale deploy/<name> --min=<number> --max=<number> --cpu-percent=<number>
+```
 
 
 #### :gem:  Awareness of manifest management and common templating tools:
@@ -467,6 +573,10 @@ k explain pod.spec.securityContext
 ---
 
 ### :diamonds: Troubleshooting:
+
+```bash
+k top nodes # metrics-server needs to be deployed
+```
 
 #### :gem: Evaluate cluster and node logging:
 
