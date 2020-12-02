@@ -608,3 +608,139 @@ k logs -l k=v --all-containers -n <ns>
 
 
 ```
+
+---
+
+### Practice Qs:
+1- Create a pod from the image nginx
+```bash
+k run nginx --image=nginx
+```
+
+2- Create a new Deployment with the below attributes using your own deployment definition file
+Name: httpd-frontend; Replicas: 3; Image: httpd:2.4-alpine
+
+```bash
+k create deploy httpd-fronted --image=httpd:2.4-alpine --replicas=3
+```
+
+3- Deploy a pod named nginx-pod using the nginx:alpine image "Use imperative commands only."
+```bash
+k run nginx-pod --image=nginx:alpine
+```
+
+4- Deploy a redis pod using the redis:alpine image with the labels set to tier=db.
+
+Either use imperative commands to create the pod with the labels. Or else use imperative commands to generate the pod definition file, then add the labels before creating the pod using the file.
+
+```bash
+k run redis --image=redis:alpine --labels="tier=db"
+```
+
+5- Create a service redis-service to expose the redis application within the cluster on port 6379. Use imperative commands
+```bash
+k expose po redis --port=6379 --target-port=6379 --name=redis-service
+```
+
+6- Create a deployment named webapp using the image kodekloud/webapp-color with 3 replicas. Try to use imperative commands only. Do not create definition files.
+```bash
+k create deploy webapp --image=kodekloud/webapp-color --replicas=3
+```
+
+7- Create a new pod called custom-nginx using the nginx image and expose it on container port 8080
+```bash
+k run custom-nginx --image=nginx --port=8080 
+```
+
+8- Create a new namespace called dev-ns.
+```bash
+k create ns dev-ns
+```
+
+9- Create a new deployment called redis-deploy in the dev-ns namespace with the redis image. It should have 2 replicas.
+```bash
+k create deploy redis-deploy --image=redis --replicas=2 -n dev-ns
+```
+
+10- Create a pod called httpd using the image httpd:alpine in the default namespace. 
+Next, create a service of type ClusterIP by the same name (httpd). The target port for the service should be 80.
+```bash
+k run httpd --image=httpd:alpine 
+k expose po/httpd --port=80 --target-port=80
+```
+
+11- Create a taint on node01 with key of 'spray', value of 'mortein' and effect of 'NoSchedule'
+```bash
+k taint -h
+k taint nodes node01 spray=mortein:NoSchedule
+```
+
+12- Create another pod named 'bee' with the NGINX image, which has a toleration set to the taint Mortein
+ Image name: nginx
+Key: spray
+Value: mortein
+Effect: NoSchedule
+Status: Running 
+
+```bash
+k explain pod.spec.tolerations
+k run bee --image=nginx -o yaml --dry-run=client > nginx.yml 
+# Add to the file 
+spec:
+  tolerations:
+  - effect: NoSchedule
+    key: spray 
+    value: mortein
+    operator: Equal
+```
+
+13- Remove the taint on master/controlplane, which currently has the taint effect of NoSchedule
+
+```
+k taint nodes controleplane node-role.kubernetes.io/master-
+```
+
+14- Apply a label color=blue to node node01
+
+```bash
+k label nodes node1 color=blue
+```
+
+15- Create a new deployment named blue with the nginx image and 6 replicas
+
+```bash
+k create deploy blue --image=nginx --replicas=6
+```
+
+Set Node Affinity to the deployment to place the pods on node01 only
+Name: blue
+Replicas: 6
+Image: nginx
+NodeAffinity: requiredDuringSchedulingIgnoredDuringExecution
+Key: color
+values: blue 
+
+```bash
+k explain pod.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms
+matchExpressions # labels 
+  key:
+  operator:
+  values:
+
+k create deploy blue --image=nginx --replicas=6 -o yaml --dry-run=client > nginx.yml
+```
+
+Create a new deployment named red with the nginx image and 3 replicas, and ensure it gets placed on the master/controlplane node only.
+
+Use the label - node-role.kubernetes.io/master - set on the master/controlplane node.
+
+Name: red
+Replicas: 3
+Image: nginx
+NodeAffinity: requiredDuringSchedulingIgnoredDuringExecution
+Key: node-role.kubernetes.io/master
+Use the right operator 
+
+```
+k create deploy red --image=nginx --replicas=3 -o yaml --dry-run=client
+```
