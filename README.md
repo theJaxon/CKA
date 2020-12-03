@@ -122,6 +122,9 @@ kubectl apply -f fileName.yml --validate --dry-run=client
 ```bash
 /etc/kubernetes/pki/ # Here all certs and keys are stored
 
+# ETCD certs 
+/etc/kubernetes/pki/etcd
+
 /etc/kubernetes/manifests # Static pods definition files that are used for bootstraping kubernetes are located here
   /etcd.yaml
   /kube-apiserver.yaml
@@ -437,11 +440,30 @@ kubectl get nodes  -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cp
 </details>
 
 ### :diamonds: Storage: 
-
+```
 .pod.spec.containers.volumeMounts
   . readOny: True 
+```
 
 ---
+
+### :diamonds: 1- Cluster Architecture, Installation & Configuration 25%:
+#### :gem: 6- Implement etcd backup and restore
+```bash
+yum provides */etcd
+yum install -y etcd # This also installs etcdctl
+etcdctl -h
+ETCDCTL_API=3 etcdctl -h # View help menu of API V3 for etcd
+ETCDCTL_API=3 etcdctl snapshot save -h
+ps aux | grep etcd
+
+# From the help we figure the parameters needed as 
+# --cacert --cert --key --endpoints
+ETCDCTL_API=3 etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/apiserver-etcd-client.crt --key=/etc/kubernetes/pki/apiserver-etcd-client.key  --endpoints https://127.0.0.1:2379 snapshot save <location>
+```
+* Create a backup of ETCD database (API V3 is used), write the backup to `/var/exam/etcd-backup`
+
+Search for **etcdctl snapshot save** in the documentation page which should result in [Operating etcd clusters for k8s](https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/)
 
 ### :diamonds: Workloads & Scheduling:
 
@@ -749,7 +771,7 @@ Use the right operator
 k create deploy red --image=nginx --replicas=3 -o yaml --dry-run=client
 ```
 
-Deploy a DaemonSet for FluentD Logging.
+18- Deploy a DaemonSet for FluentD Logging.
 
 Use the given specifications.
 
@@ -762,7 +784,7 @@ k create deploy elasticsearch --image=k8s.gcr.io/fluentd-elasticsearch:1.20 -n k
 # Modify and change the kind to DaemonSet, remove replicas and strategy
 ```
 
-Create a static pod named static-busybox that uses the busybox image and the command sleep 1000
+19- Create a static pod named static-busybox that uses the busybox image and the command sleep 1000
 ```
 cd /etc/kubernetes/manifests
 k run static-busybox --image=busybox -o yaml --dry-run=client > busybox.yml --command sleep 1000
@@ -779,3 +801,74 @@ cd /static/pod/path
 rm file.yml 
 ```
 
+20- Create a new Secret named 'db-secret' with the data given(on the right).
+
+You may follow any one of the methods discussed in lecture to create the secret.
+
+Secret Name: db-secret
+Secret 1: DB_Host=sql01
+Secret 2: DB_User=root
+Secret 3: DB_Password=password123 
+
+```
+k create secret generic db-secret --from-literal=DB_Host=sql01 --from-literal=DB_User=root --from-literal=DB_Password=password123
+```
+
+21- Configure webapp-pod to load environment variables from the newly created secret.
+Delete and recreate the pod if required.
+
+Pod name: webapp-pod
+Image name: kodekloud/simple-webapp-mysql
+Env From: Secret=db-secret 
+
+```
+k create secret generic --from-literal=Secret=db-secret
+k get po webapp-pod -o yaml > webapp-pod.yaml
+k set env po/webapp-pod --from=secret/db-secret 
+```
+
+22- Create a multi-container pod with 2 containers.
+Use the spec given on the right.
+
+Name: yellow
+Container 1 Name: lemon
+Container 1 Image: busybox
+Container 2 Name: gold
+Container 2 Image: redis
+
+```
+k run lemon --image=busybox --labels="name=yellow" -o yaml --dry-run=client > multi.yml 
+vi multi.yml
+
+- name: gold
+  image: redis
+```
+
+Edit the pod to add a sidecar container to send logs to ElasticSearch. Mount the log volume to the sidecar container..
+Only add a new container. Do not modify anything else. Use the spec on the right.
+
+Name: app
+Container Name: sidecar
+Container Image: kodekloud/filebeat-configured
+Volume Mount: log-volume
+Mount Path: /var/log/event-simulator/
+Existing Container Name: app
+Existing Container Image: kodekloud/event-simulator
+
+```
+k get po app -o yaml > app.yml
+vi app.yml
+containers:
+- image: kodekloud/filebeat-configured
+  name: sidecar
+  volumeMounts:
+  - name: log-volume
+    mountPath: /var/log/event-simulator
+```
+
+
+
+---
+
+### Good to know:
+- Creating custom resource definitions [crd]
