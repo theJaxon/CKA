@@ -122,7 +122,7 @@ kubectl apply -f fileName.yml --validate --dry-run=client
 ```bash
 /etc/kubernetes/pki/ # Here all certs and keys are stored
 
-/etc/kubernetes/manifests # Here all config files are located
+/etc/kubernetes/manifests # Static pods definition files that are used for bootstraping kubernetes are located here
   /etcd.yaml
   /kube-apiserver.yaml
   /kube-controller-manager.yaml
@@ -132,7 +132,11 @@ $HOME/.kube/config # --kubeconfig file
 
 /var/lib/docker # ["aufs", "containers", "image", "volumes"]
 
+/var/lib/kubelet/config.yaml # kubelet config file that contains static pod path //usually /etc/kubernetes/manifests
+
 /var/logs/containers # logs are stored here 
+
+
 ```
 
 ---
@@ -712,7 +716,7 @@ k label nodes node1 color=blue
 k create deploy blue --image=nginx --replicas=6
 ```
 
-Set Node Affinity to the deployment to place the pods on node01 only
+16- Set Node Affinity to the deployment to place the pods on node01 only
 Name: blue
 Replicas: 6
 Image: nginx
@@ -730,7 +734,7 @@ matchExpressions # labels
 k create deploy blue --image=nginx --replicas=6 -o yaml --dry-run=client > nginx.yml
 ```
 
-Create a new deployment named red with the nginx image and 3 replicas, and ensure it gets placed on the master/controlplane node only.
+17- Create a new deployment named red with the nginx image and 3 replicas, and ensure it gets placed on the master/controlplane node only.
 
 Use the label - node-role.kubernetes.io/master - set on the master/controlplane node.
 
@@ -744,3 +748,34 @@ Use the right operator
 ```
 k create deploy red --image=nginx --replicas=3 -o yaml --dry-run=client
 ```
+
+Deploy a DaemonSet for FluentD Logging.
+
+Use the given specifications.
+
+    Name: elasticsearch
+    Namespace: kube-system
+    Image: k8s.gcr.io/fluentd-elasticsearch:1.20
+
+```bash
+k create deploy elasticsearch --image=k8s.gcr.io/fluentd-elasticsearch:1.20 -n kube-system -o yaml --dry-run=client > elastic.yml
+# Modify and change the kind to DaemonSet, remove replicas and strategy
+```
+
+Create a static pod named static-busybox that uses the busybox image and the command sleep 1000
+```
+cd /etc/kubernetes/manifests
+k run static-busybox --image=busybox -o yaml --dry-run=client > busybox.yml --command sleep 1000
+```
+
+delete static pod named static-greenbox
+```bash
+# ssh into the node containing the pod definition file 
+k get po -o wide # See which node the pod is on
+k get nodes -o wide # Get node ip
+ssh ip-address
+cat /var/lib/kubelet/config.yml # Check the staticPodPath
+cd /static/pod/path
+rm file.yml 
+```
+
