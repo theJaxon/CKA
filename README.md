@@ -97,6 +97,17 @@ Kubernetes cluster consists of one or more master nodes + one or more worker nod
 ### [Important kubectl commands](https://blog.heptio.com/kubectl-explain-heptioprotip-ee883992a243):
 
 ```bash
+k cluster-info 
+k config -h
+k config view # View content of ~/.kube/config | /etc/kubernetes/admin.conf
+
+# Auto completion enable
+k completion -h 
+vi ~/.bashrc
+alias k=kubectl
+source <(kubectl completion bash | sed 's/kubectl/k/g')
+source ~/.bashrc
+
 kubectl explain deploy
 
 # Check all fields in a resource
@@ -521,9 +532,25 @@ k scale deploy/<name> --replicas=<number>
 # Conditionally scale using hpa 
 k autoscale deploy/<name> --min=<number> --max=<number> --cpu-percent=<number>
 ```
+#### :gem: 5- Understand how resource limits can affect Pod scheduling:
+Scheduling on specific nodes using labels and node name:
+```bash
+k label nodes <name> k=v
+k explain pod.spec.nodeSelector 
+containers:
+  spec:
+    nodeSelector:
+      k=v
+
+# Using nodeName directly
+k explain pod.spec.nodeName
+containers:
+  spec:
+    nodeName: <node-name>
+```
 
 
-#### :gem:  Awareness of manifest management and common templating tools:
+#### :gem: 6- Awareness of manifest management and common templating tools:
 **pod.spec**:
 There are many fields under the `containers` in the spec, the most signifacnt ones are:
 1. **Scheduling**: This helps in selecting the node where the pod will be deployed to either directly through `nodeName` , `nodeSelector` which uses a lable or using `affinity` and `tolerations`
