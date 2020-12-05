@@ -296,7 +296,7 @@ There are 3 essential certs found in ~/.kube/config file (can also be viewed usi
 2. client-key-data # private key 
 3. certificate-authority-data # CA public key cert
 
-#### Kubernetes user accounts:
+#### Kubernetes user accounts [Authentication]:
 - There are no `user` objects in k8s.
 - User account is just an authorized cert + RBAC authorization
 
@@ -344,7 +344,7 @@ spec:
   - client auth
 ```
 
-That's all .. now we can use our `.crt` and `.key` to talk to the API server, to use them we create a new context 
+That's all .. now we can use our **`.crt`** and **`.key`** to talk to the API server, to use them we create a new context 
 ```bash
 # 1. set the credentials
 k config set-credentials <name> --client-certificate=<name>.crt --client-key=<name>.key 
