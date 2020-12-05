@@ -160,6 +160,8 @@ $HOME/.kube/config # --kubeconfig file
 
 * API Serves on port `6443` by default
 
+![kubeconfig](https://github.com/theJaxon/CKA/blob/master/etc/kubeconfig.png)
+
 ---
 
 ### Important Documentation page sections:
@@ -303,6 +305,8 @@ There are 5 steps involved in creating the user, the steps should result in 2 fi
 2. certificate.crt
 
 Those 2 can be used to talk to the `API-server`
+
+![add-user](https://github.com/theJaxon/CKA/blob/master/etc/add-user.png)
 
 Steps explained:
 ```bash
