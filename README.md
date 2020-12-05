@@ -346,7 +346,7 @@ spec:
 
 That's all .. now we can use our **`.crt`** and **`.key`** to talk to the API server
 
-![Authntication](https://github.com/theJaxon/CKA/blob/master/etc/Authentication.png)
+![Authentication](https://github.com/theJaxon/CKA/blob/master/etc/Authentication.png)
 
 To use them we create a new context 
 ```bash
@@ -364,6 +364,16 @@ k config get-contexts
 k --context <name> get po
 ```
 
+---
+
+### Authorization:
+Authorization modules in K8s include:
+1. AlwaysAllow # For testing only 
+2. AlwaysDeny # For testing only 
+3. **RBAC**
+4. ABAC
+5. Node
+6. Webhook
 
 ---
 
@@ -634,7 +644,7 @@ cat /var/lib/kubelet/config.yaml
 
 #2- Use kube proxy 
 k proxy &
-curl localhost:8081/api/v1/nodes/<node-name>/proxy/configz
+curl localhost:8001/api/v1/nodes/<node-name>/proxy/configz
 ```
 * The path for static pods is usually `/etc/kubernetes/manifests`
 
