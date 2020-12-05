@@ -344,7 +344,11 @@ spec:
   - client auth
 ```
 
-That's all .. now we can use our **`.crt`** and **`.key`** to talk to the API server, to use them we create a new context 
+That's all .. now we can use our **`.crt`** and **`.key`** to talk to the API server
+
+![Authntication](https://github.com/theJaxon/CKA/blob/master/etc/Authentication.png)
+
+To use them we create a new context 
 ```bash
 # 1. set the credentials
 k config set-credentials <name> --client-certificate=<name>.crt --client-key=<name>.key 
