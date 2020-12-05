@@ -288,10 +288,6 @@ ETCD_API=3 etcdctl snapshot save snapshot.db
 
 ---
 
-<details>
-<summary>Security</summary>
-<p>
-
 #### User certificates:
 There are 3 essential certs found in ~/.kube/config file (can also be viewed using `k config view`), those are:
 1. client-certificate-data # public key cert
