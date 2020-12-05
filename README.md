@@ -128,7 +128,11 @@ journalctl -u kube-apiserver
 # Dry run and validate
 kubectl apply -f fileName.yml --validate --dry-run=client
 
+# View certificate (Decoded) 
+openssl x509 -in /etc/kubernetes/pki/<name>.crt -text -noout
+
 ```
+
 ---
 
 ### :file_folder: Important Directories:
@@ -298,126 +302,83 @@ There are 3 essential certs found in ~/.kube/config file (can also be viewed usi
 - There are no `user` objects in k8s.
 - User account is just an authorized cert + RBAC authorization
 
-Creating a user account is achieved by:
-```
-1- Create pubclic/private key pair
-2- Create cert signing request 
-3- Sign the cert
-4- Create config file that uses the keys to access the k8s cluster
-5- Create RBAC role
-6- Create RBAC role binding
-```
+There are 5 steps involved in creating the user, the steps should result in 2 files being created, those are:
+1. private.key
+2. certificate.crt
 
-Detailed steps:
-1- Create a namespace (so that we restrict the user account only to this NS)
+Those 2 can be used to talk to the `API-server`
+
+Steps explained:
 ```bash
-k create ns <name>
+# 1. create a new private key 
+openssl genrsa -out <name>.key 2048
+
+# 2. Create a CSR and encode it 
+openssl req -new -key <name>.key -out <name>.csr -subj "/CN=<name>"
+cat <name>.csr | base64 | tr -d '\n'
+
+# 3. Create k8s CSR object using the generated openssl csr
+# https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#create-certificatesigningrequest
+k apply -f csr.yml
+k get csr
+
+# 4. Approve k8s csr 
+k certificate approve <name>
+
+# 5. Grab .crt content from the approved csr and decode it into a file
+k get csr <name> -o jsonpath='{.status.certificate}' | base64 -d > <name>.crt
 ```
 
-2- Create a user account 
-```bash
-sudo useradd <username> -m -d /home/<username> -s /bin/bash 
-sudo usermod -aG wheel <username>
-sudo echo <passwd> | sudo passwd --stdin <username>
-# All steps are in the certificates page in the documentation
-# https://kubernetes.io/docs/concepts/cluster-administration/certificates/#openssl
-openssl genrsa -out <username>.key
-
-openssl req -new -key <username>.key \
--out <username>.csr \ 
--subj "/CN=<username>/O=<namespace>"
-
-openssl x509 -req -in <username>.csr \
--CA /etc/kubernetes/pki/ca.crt \
--CAkey /etc/kubernetes/pki/ca.key \
--CAcreateserial -out <username>.crt \
--days <number>
+Kubernetes CSR file sample:
+```yaml
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: <name>
+spec:
+  groups:
+  - system:authenticated
+  request: # Place your <csr> base64 encoded here
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - client auth
 ```
 
-3- Update k8s credentials files for the new user
+That's all .. now we can use our `.crt` and `.key` to talk to the API server, to use them we create a new context 
 ```bash
-k config view 
-k config set-credentials <username> \
---client-certificate=./<username>.crt \
---client-key=./<username>.key
+# 1. set the credentials
+k config set-credentials <name> --client-certificate=<name>.crt --client-key=<name>.key 
+
+# 2. Verify that credentials were added 
 k config view
+
+# 3. create and set context 
+k config set-context <user> --cluster=<name> --user=<name>
+k config get-contexts
+
+# 4. use context to verify 
+k --context <name> get po
 ```
 
-4- Create context for the newly created user 
-```bash
-k config set-context <username-context> --cluster=kubernetes --namespace=<ns> --user=<username>
+
+---
+
+### Talking to the server without proxy:
+While the easy approach is to just use `k proxy &` and then curl request would work on port `8001`, there are other approaches like
+1. Using **Bearer Token** for authentication:
+By default kubernetes creates a secret for each `service account` so for the default namespace a secret is created as `default-token-*`
+
+To be able to make a curl request to the server grab the secret 
 ```
+# 1- Grab the Server URL
+k config view 
 
-> :bell: Create and manage TLS certificates for cluster components :bell:
+# 2- Copy the token
+k describe secret default-token-*
 
-1- Certificate authority [CA]
-```bash
-# Generate Keys
-openssl genrsa -out ca.key 2048
-
-# Certificate Signing Request 
-openssl req -new -key ca.key -subj "/CN-KUBERNETES-CA" -out ca.csr
-
-# Sign certificates 
-openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt
+# 3- use curl to access the server as follows
+curl -k https://<server-address>/api/v1 --header "Authorization: Bearer <token>"
 ```
-
-2- Client certificates [admin user]
-```bash
-openssl genrsa -out admin.key 2048
-openssl req -new -key admin.key -subj "/CN=kube-admin/O=system:masters" -out admin.csr 
-openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -out admin.crt
-```
-
-3- Kube-API server 
-```bash
-openssl requ -new -key apiserver.key -subj "CN=/kube-apiserver" -out apiserver.csr
-```
-
-View certificate details
-```
-openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
-```
-
-View etcd logs (if setup was done using kubeadm):
-```
-kubectl logs etcd-master
-```
-
-Approving certificate signing request:
-```
-kubectl certificate approve <name>
-```
-
-View `kube-config` file:
-```
-kubectl config view
-```
-
-Change default context:
-```bash
-kubectl config use-context user@cluster
-# This changes default context in the file as well so now current-context: user@cluster
-```
-
-Check given access permissions with `can-i`:
-```bash
-
-kubectl auth can-i <verb> <object>
-
-kubectl auth can-i create deployments
-
-kubectl auth can-i delete nodes
-
-# use can-i as another user 
-kubectl auth can-i create pods --as <user-name>
-
-# use can-i as another user and test a different namespace 
-kubectl auth can-i create pods --as <user> --namespace <name>
-```
-
-</p>
-</details>
 
 
 ---
@@ -671,6 +632,7 @@ cat /var/lib/kubelet/config.yaml
 k proxy &
 curl localhost:8081/api/v1/nodes/<node-name>/proxy/configz
 ```
+* The path for static pods is usually `/etc/kubernetes/manifests`
 
 ---
 
