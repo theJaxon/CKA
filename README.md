@@ -97,6 +97,7 @@ Kubernetes cluster consists of one or more master nodes + one or more worker nod
 ### [Important kubectl commands](https://blog.heptio.com/kubectl-explain-heptioprotip-ee883992a243):
 
 ```bash
+k <command> -v=<number> # For verbose output, useful for debugging
 k cluster-info 
 k config -h
 k config view # View content of ~/.kube/config | /etc/kubernetes/admin.conf
@@ -121,6 +122,7 @@ kubectl proxy # runs on port 8001 by default
 # use curl http://localhost:8801 -k to see a list of API groups
 
 # NOT kubectl but useful
+journalctl -u kubelet
 journalctl -u kube-apiserver
 
 # Dry run and validate
@@ -150,8 +152,9 @@ $HOME/.kube/config # --kubeconfig file
 
 /var/logs/containers # logs are stored here 
 
-
 ```
+
+* API Serves on port `6443` by default
 
 ---
 
@@ -247,14 +250,10 @@ k scale deploy/<name> --replicas=<number>
 
 ```bash
 # Mark node as unusable 
-kubectl drain <node>
-
-OR 
-
-kubectl cordon <node>
+k drain <node> | k cordon <node>
 
 # Remove the drain restriction
-kubectl uncordon <node>
+k uncordon <node>
 ```
 
 Cordon Vs drain:
@@ -288,6 +287,66 @@ ETCD_API=3 etcdctl snapshot save snapshot.db
 <details>
 <summary>Security</summary>
 <p>
+
+#### User certificates:
+There are 3 essential certs found in ~/.kube/config file (can also be viewed using `k config view`), those are:
+1. client-certificate-data # public key cert
+2. client-key-data # private key 
+3. certificate-authority-data # CA public key cert
+
+#### Kubernetes user accounts:
+- There are no `user` objects in k8s.
+- User account is just an authorized cert + RBAC authorization
+
+Creating a user account is achieved by:
+```
+1- Create pubclic/private key pair
+2- Create cert signing request 
+3- Sign the cert
+4- Create config file that uses the keys to access the k8s cluster
+5- Create RBAC role
+6- Create RBAC role binding
+```
+
+Detailed steps:
+1- Create a namespace (so that we restrict the user account only to this NS)
+```bash
+k create ns <name>
+```
+
+2- Create a user account 
+```bash
+sudo useradd <username> -m -d /home/<username> -s /bin/bash 
+sudo usermod -aG wheel <username>
+sudo echo <passwd> | sudo passwd --stdin <username>
+# All steps are in the certificates page in the documentation
+# https://kubernetes.io/docs/concepts/cluster-administration/certificates/#openssl
+openssl genrsa -out <username>.key
+
+openssl req -new -key <username>.key \
+-out <username>.csr \ 
+-subj "/CN=<username>/O=<namespace>"
+
+openssl x509 -req -in <username>.csr \
+-CA /etc/kubernetes/pki/ca.crt \
+-CAkey /etc/kubernetes/pki/ca.key \
+-CAcreateserial -out <username>.crt \
+-days <number>
+```
+
+3- Update k8s credentials files for the new user
+```bash
+k config view 
+k config set-credentials <username> \
+--client-certificate=./<username>.crt \
+--client-key=./<username>.key
+k config view
+```
+
+4- Create context for the newly created user 
+```bash
+k config set-context <username-context> --cluster=kubernetes --namespace=<ns> --user=<username>
+```
 
 > :bell: Create and manage TLS certificates for cluster components :bell:
 
@@ -459,6 +518,24 @@ kubectl get nodes  -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cp
 ---
 
 ### :diamonds: 1- Cluster Architecture, Installation & Configuration 25%:
+#### :gem: 1- Manage role based access control (RBAC)
+After creating a user account and configuring keys and certs we then create ClusterRole (or a Role) and ClusterRoleBinding (or a RoleBinding)
+```bash
+# Create a Role 
+k create role -h 
+k create role <ns> --verb=get,watch,create,update,patch,delete --resource=deploy,po,rs -n <ns> -o yaml --dry-run=client > ns-role.yml
+
+# Bind the user to the role 
+k create rolebinding -h
+k create rolebinding <username-binding> --role=<ns> --user=<username> -n <ns>
+```
+
+Test the effect of the role by using --context:
+```
+k --context=<context-name> <verb> <object> <name>
+```
+
+
 #### :gem: 6- Implement etcd backup and restore
 ```bash
 yum provides */etcd
@@ -516,7 +593,54 @@ k rollout undo deploy/<name> --to-revision=<number>
 </p>
 </details>
 
-#### :gem: 2- Use ConfigMaps and Secrets to configure applications
+#### :gem: 2- Use ConfigMaps and Secrets to configure applications:
+
+- Create configMaps imperatively:
+```bash
+# cm from file
+k create cm <name> --from-file=<file-name>.<extension>
+
+# cm from env file 
+k create cm <name> --from-env-file=<file-name>.env
+
+# cm from literals 
+k create cm <name> --from-literal=K=v --from-literal=K=v
+```
+
+- Use configMaps as volumes:
+  1. Mount configMap item in a specific path
+  * The key is usally a name of a file and all you do is mount the specific file to a specific path.
+  ```bash
+  # Create a simple configMap
+  k create cm test-cm --from-literal=DISTRO=ubuntu --from-literal=CODENAME=focal
+
+  # Generate pod definition
+  k run busybox --image=busybox -o yaml --dry-run=client > busybox.yml --command sleep 3600
+
+  # Modify the file to use only the DISTRO item from the configMap
+  spec:
+  volumes:
+  - name: test-v
+    configMap:
+      name: test-cm
+      items:
+      - key: DISTRO
+        path: distro.name
+  containers:
+  - command:
+    - sleep
+    - "3600"
+    image: busybox
+    name: busybox
+    volumeMounts:
+    - name: test-v
+      mountPath: /tmp
+  # Verify
+  k exec -it busybox -- cat /tmp/distro.name # shows ubuntu
+  ```
+
+  2. Mount the whole configMap to a specific path 
+
 :mag: Search the docs for:
 ```bash
 #Configmap volume
@@ -532,6 +656,24 @@ k scale deploy/<name> --replicas=<number>
 # Conditionally scale using hpa 
 k autoscale deploy/<name> --min=<number> --max=<number> --cpu-percent=<number>
 ```
+
+---
+
+#### Static pods:
+* Static pods are directly attached to the kubelet daemon
+* The files used for static pods are placed using `staticPodPath` section of the kubelet file in the **kubelet config file**
+* static pod path can be found using:
+```bash
+#1- Search in kubelet config file
+cat /var/lib/kubelet/config.yaml
+
+#2- Use kube proxy 
+k proxy &
+curl localhost:8081/api/v1/nodes/<node-name>/proxy/configz
+```
+
+---
+
 #### :gem: 5- Understand how resource limits can affect Pod scheduling:
 Scheduling on specific nodes using labels and node name:
 ```bash
@@ -548,6 +690,24 @@ containers:
   spec:
     nodeName: <node-name>
 ```
+
+```bash
+k explain pod.spec.affinity
+```
+
+* Affinity, antiAffinity and taints all impact scheduling and limit which pods can be scheduled to which nodes.
+* Affinity can be applied at 2 levels, at **Nodes** and at **Pods**
+* NodeAffinity sets affinity rules on nodes: specifies which nodes a pod can be scheduled on.
+* Inter-pod affinity sets affinity rules between pods
+* Taints and tolerations ensues that pods aren't scheduled on inapporpriate nodes
+* Taints and tolerations have no effect on daemonsets
+* Tains are ignored if the pod has a toleration
+
+There are 3 types of taints `k explain node.spec.taints`
+1. NoSchedule: Prevents scheduling of new pods.
+2. PreferNoSchedule: doesn't schedule new pods unless there's no other option
+3. NoExecute: migrate all pods away from this node
+
 
 
 #### :gem: 6- Awareness of manifest management and common templating tools:
