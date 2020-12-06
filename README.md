@@ -162,6 +162,43 @@ $HOME/.kube/config # --kubeconfig file
 
 ![kubeconfig](https://github.com/theJaxon/CKA/blob/master/etc/kubeconfig.png)
 
+- A single kubeconfig file can have information related to multiple kubernetes clusters (different servers).
+There are 3 core fields in the kubeconfig file:
+1. cluster field: includes details related to the URL of the cluster `server` and associated info.
+2. user field: contains info about [authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) mechanisms for the user which can be either
+  1. user/password
+  2. certificates
+  3. tokens
+
+3. context field: groups information related to cluster, user and namespaces.
+
+* To remove any field from the kubeconfig use the unset command 
+
+```bash
+# Remove context from kubeconfig 
+k config unset contexts.<name>
+
+# Remove user from kubeconfig 
+k config unset users.<name>
+```
+
+* While kubeconfig can be loaded from the known locations as `.kube` in home dir or $KUBECONFIG ENV var, sometimes you want to exactly know from where it gets loaded an here the -v is really helpful 
+```bash
+k config view -v=10
+```
+
+#### Create a kubeconfig file: 
+```bash
+# 1. Generate the base config file
+k config --kubeconfig=<name> set-cluster <cluster-name> --server=https://<address>
+
+# 2. Add user details 
+k config --kubeconfig=<name> set-credentials <username> --username=<username> --password=<pwd>
+
+# 3. set context in the kubeconfig file 
+k config --kubeconfig=<name> set-context <name> --cluster=<cluster-name> --namespace=<ns> --user=<user>
+
+```
 ---
 
 ### Important Documentation page sections:
@@ -1029,6 +1066,51 @@ containers:
     mountPath: /var/log/event-simulator
 ```
 
+Create the necessary roles and role bindings required for the dev-user to create, list and delete pods in the default namespace.
+
+Use the given spec
+
+Role: developer
+Role Resources: pods
+Role Actions: list
+Role Actions: create
+RoleBinding: dev-user-binding
+RoleBinding: Bound to dev-user
+
+```bash
+k create role developer --resource=po --verb=list,create -n default -o yaml --dry-run=client > developer.yml
+k apply -f developer.yml
+
+k create rolebinding dev-user-binding --role=developer --user=dev-user --namespace=default -o yaml --dry-run=client > dev-user-binding.yml
+k apply -f dev-user-binding.yml
+```
+
+A new user michelle joined the team. She will be focusing on the nodes in the cluster. Create the required ClusterRoles and ClusterRoleBindings so she gets access to the nodes.
+
+Grant permission to list nodes 
+```bash
+k create clusterrole michelle --verb=list --resource=node 
+k create clusterrolebinding michelle --clusterrole=michelle --user=michelle
+```
+
+michelle's responsibilities are growing and now she will be responsible for storage as well. 
+Create the required ClusterRoles and ClusterRoleBindings to allow her access to Storage.
+
+Get the API groups and resource names from command kubectl api-resources. Use the given spec.
+
+ClusterRole: storage-admin
+Resource: persistentvolumes
+Resource: storageclasses
+ClusterRoleBinding: michelle-storage-admin
+ClusterRoleBinding Subject: michelle
+ClusterRoleBinding Role: storage-admin 
+```bash
+k create clusterrole storage-admin --resource=pv,sc --verb=create,list,delete -o yaml --dry-run=client > storage-admin.yml
+k apply -f storage-admin.yml 
+
+k create clusterrolebinding michelle-storage-admin --clusterrole=storage-admin --user=michelle -o yaml --dry-run=client > michelle-storage-admin.yml
+k apply -f michelle-storage-admin.yml
+```
 
 
 ---
