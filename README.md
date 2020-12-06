@@ -437,10 +437,28 @@ curl -k https://<server-address>/api/v1 --header "Authorization: Bearer <token>"
 * By default all the pods in the cluster can communicate with each others without restrictions.
 * Network Policy is used to modify this behavior
 
+#### How the spec is organized:
+
+
+
+* Check the repo [Kubernetes Network Policy Recipes](https://github.com/ahmetb/kubernetes-network-policy-recipes)
+
 ```bash
 # View Network policies in the current ns 
 k get netpol
 ```
+
+#### Blocking all incoming traffic using blank Netpol:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-policy 
+spec:
+  podSelector: {} # Select all pods 
+  ingress: [] # No traffic is whitelisted
+```
+* From [Ahmet Balkan talk at Kubecon](https://www.youtube.com/watch?v=3gGpMmYeEO8)
 
 ---
 
