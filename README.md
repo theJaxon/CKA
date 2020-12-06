@@ -431,6 +431,16 @@ k describe secret default-token-*
 curl -k https://<server-address>/api/v1 --header "Authorization: Bearer <token>"
 ```
 
+---
+
+#### Using NetworkPolicies to restrict pod communication:
+* By default all the pods in the cluster can communicate with each others without restrictions.
+* Network Policy is used to modify this behavior
+
+```bash
+# View Network policies in the current ns 
+k get netpol
+```
 
 ---
 
@@ -1110,6 +1120,178 @@ k apply -f storage-admin.yml
 
 k create clusterrolebinding michelle-storage-admin --clusterrole=storage-admin --user=michelle -o yaml --dry-run=client > michelle-storage-admin.yml
 k apply -f michelle-storage-admin.yml
+```
+
+Create a network policy to allow traffic from the 'Internal' application only to the 'payroll-service' and 'db-service'
+Use the spec given on the right. You might want to enable ingress traffic to the pod to test your rules in the UI.
+
+Policy Name: internal-policy
+Policy Types: Egress
+Egress Allow: payroll
+Payroll Port: 8080
+Egress Allow: mysql
+MYSQL Port: 3306 
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: internal-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      name: internal
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+      podSelector:
+        matchLabels:
+          name: mysql
+    ports:
+    - protocol: TCP
+      port: 3306 # MYSQL
+  - to:
+      podSelector:
+        matchLabels:
+          name: payroll
+    ports:
+    - protocol: TCP
+      port: 8080
+```
+
+Configure a volume to store these logs at /var/log/webapp on the host
+Use the spec given on the right.
+Name: webapp
+Image Name: kodekloud/event-simulator
+Volume HostPath: /var/log/webapp
+Volume Mount: /log 
+
+```yaml
+volumes:
+- name: webapp-v
+  hostPath:
+    path: /var/log/webapp
+
+containers:
+- name: webapp
+  image: kodekloud/event-simulator
+  volumeMounts:
+  - name: webapp-v
+    mountPath: /log
+```
+
+Create a 'Persistent Volume' with the given specification.
+
+Volume Name: pv-log
+Storage: 100Mi
+Access modes: ReadWriteMany
+Host Path: /pv/log 
+
+```yml
+k explain pv # Follow the link and copy the NFS example 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-log
+spec:
+  capacity:
+    storage: 100Mi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /pv/log
+```
+
+Let us claim some of that storage for our application. Create a 'Persistent Volume Claim' with the given specification.
+
+Volume Name: claim-log-1
+Storage Request: 50Mi
+Access modes: ReadWriteOnce
+```yaml
+k explain pvc # Follow the link and copy the sample
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: claim-log-1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 50Mi
+```
+
+Update the webapp pod to use the persistent volume claim as its storage.
+
+Replace hostPath configured earlier with the newly created PersistentVolumeClaim
+
+Name: webapp
+Image Name: kodekloud/event-simulator
+Volume: PersistentVolumeClaim=claim-log-1
+Volume Mount: /log 
+
+```yaml
+volumes:
+- name: pvc-v
+  persistentVolumeClaim:
+    claimName: claim-log-1
+containers:
+- name: webapp
+  image: kodekloud/event-simulator
+  volumeMounts:
+  - name: pvc-v
+    mountPath: /log
+```
+
+Create a new pod called nginx with the image nginx:alpine. 
+The Pod should make use of the PVC local-pvc and mount the volume at the path `/var/www/html`.
+
+The PV local-pv should in a bound state.
+Pod created with the correct Image?
+Pod uses PVC called local-pvc?
+local-pv bound?
+nginx pod running?
+Volume mounted at the correct path? 
+
+```bash
+# Generate pod file 
+k run nginx --image=nginx:alpine -o yaml --dry-run=client > nginx.yml
+```
+Modify the generated file:
+```yaml
+volumes:
+- name: test 
+  persistentVolumeClaim:
+    claimName: local-pvc
+containers:
+- name: nginx
+  image: nginx:alpine
+  volumeMounts:
+  - name: test 
+    mountPath: /var/www/html
+
+```
+
+Create a new Storage Class called delayed-volume-sc that makes use of the below specs:
+
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+
+Storage Class uses: kubernetes.io/no-provisioner ?
+Storage Class volumeBindingMode set to WaitForFirstConsumer ?
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: delayed-volume-sc
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
 ```
 
 
