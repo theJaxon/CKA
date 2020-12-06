@@ -439,6 +439,7 @@ curl -k https://<server-address>/api/v1 --header "Authorization: Bearer <token>"
 
 #### How the spec is organized:
 
+![NetPol](https://github.com/theJaxon/CKA/blob/master/etc/NetPol.jpg)
 
 
 * Check the repo [Kubernetes Network Policy Recipes](https://github.com/ahmetb/kubernetes-network-policy-recipes)
