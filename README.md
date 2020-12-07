@@ -598,6 +598,8 @@ sudo kubeadm join <control-plane-host>:<control-plane-port> \
 --token <token> --discovery-token-ca-cert sha256:<hash>
 ```
 
+![kubeadm](https://github.com/theJaxon/CKA/blob/master/etc/Kubeadm.jpg)
+
 * Check [kubeadm deep dive](https://youtu.be/DhsFfNSIrQ4)
 
 #### :gem: 5- Perform a version upgrade on a Kubernetes cluster using Kubeadm
