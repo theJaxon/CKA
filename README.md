@@ -109,6 +109,8 @@ alias k=kubectl
 source <(kubectl completion bash | sed 's/kubectl/k/g')
 source ~/.bashrc
 
+export do="--dry-run=client -o yaml"
+
 kubectl explain deploy
 
 # Check all fields in a resource
@@ -441,7 +443,6 @@ curl -k https://<server-address>/api/v1 --header "Authorization: Bearer <token>"
 
 ![NetPol](https://github.com/theJaxon/CKA/blob/master/etc/NetPol.jpg)
 
-
 * Check the repo [Kubernetes Network Policy Recipes](https://github.com/ahmetb/kubernetes-network-policy-recipes)
 
 ```bash
@@ -576,8 +577,48 @@ Test the effect of the role by using --context:
 k --context=<context-name> <verb> <object> <name>
 ```
 
+---
+
+#### :gem: 2- Use Kubeadm to install a basic cluster
+```bash
+# 1. initialize the cluster and the first control plane
+sudo kubeadm init
+
+# 2. Install Pod Network Addon [Flannel, Calico, etc ..]
+k apply -f <Network-addon>.yml
+
+# 3. OPTIONAL For HA Cluster
+# Join more control plane nodes
+sudo kubeadm join <control-plane-host>:<control-plane-port> \
+-- token <token> --discovery-token-ca-cert-hash sha256:<hash> \
+-- control-plane --certificate-key <certificate-decryption-key>
+
+# 4. Join Worker Nodes 
+sudo kubeadm join <control-plane-host>:<control-plane-port> \
+--token <token> --discovery-token-ca-cert sha256:<hash>
+```
+
+* Check [kubeadm deep dive](https://youtu.be/DhsFfNSIrQ4)
+
+#### :gem: 5- Perform a version upgrade on a Kubernetes cluster using Kubeadm
+Refer to [kubeadm upgrade docs](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
+```bash
+# Drain the node 
+k drain <node> --ignore-daemonsets
+sudo kubeadm upgrade plan
+sudo kubeadm upgrade apply v1.19.x
+
+# Uncordon the node
+k uncordon <node>
+```
 
 #### :gem: 6- Implement etcd backup and restore
+```bash
+etcdctl snapshot save 
+etcdctl snapshot status <location>
+etcdctl snapshot restore
+```
+
 ```bash
 yum provides */etcd
 yum install -y etcd # This also installs etcdctl
@@ -588,7 +629,10 @@ ps aux | grep etcd
 
 # From the help we figure the parameters needed as 
 # --cacert --cert --key --endpoints
-ETCDCTL_API=3 etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/apiserver-etcd-client.crt --key=/etc/kubernetes/pki/apiserver-etcd-client.key  --endpoints https://127.0.0.1:2379 snapshot save <location>
+ETCDCTL_API=3 etcdctl \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt \
+--key=/etc/kubernetes/pki/apiserver-etcd-client.key snapshot save <location>
 ```
 * Create a backup of ETCD database (API V3 is used), write the backup to `/var/exam/etcd-backup`
 
