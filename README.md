@@ -158,6 +158,8 @@ openssl x509 -in /etc/kubernetes/pki/<name>.crt -text -noout
   /kube-controller-manager.yaml
   /kube-scheduler.yaml
 
+/etc/kubernetes/kubelet.conf # On Worker nodes 
+
 $HOME/.kube/config # --kubeconfig file
 
 /var/lib/docker # ["aufs", "containers", "image", "volumes"]
@@ -618,8 +620,15 @@ Refer to [kubeadm upgrade docs](https://kubernetes.io/docs/tasks/administer-clus
 ```bash
 # Drain the node 
 k drain <node> --ignore-daemonsets
+apt-get update
+apt-get install kubeadm=1.19.x -y
 sudo kubeadm upgrade plan
 sudo kubeadm upgrade apply v1.19.x
+
+# Upgrade kubelet and kubectl 
+apt-get install -y kubelet=1.19.x kubectl=1.19.x
+
+systemctl restart kubelet
 
 # Uncordon the node
 k uncordon <node>
@@ -1455,6 +1464,59 @@ spec:
             name: pay-service
             port: 8282
 ```
+
+Print the names of all deployments in the admin2406 namespace in the following format:
+DEPLOYMENT CONTAINER_IMAGE READY_REPLICAS NAMESPACE
+<deployment name> <container image used> <ready replica count> <Namespace>
+. The data should be sorted by the increasing order of the deployment name.
+
+Example:
+DEPLOYMENT CONTAINER_IMAGE READY_REPLICAS NAMESPACE
+deploy0 nginx:alpine 1 admin2406
+Write the result to the file /opt/admin2406_data.
+
+Hint: Make use of -o custom-columns and --sort-by to print the data in the required format.
+
+```
+k get deploy -n admin2046 -o custom-columns='DEPLOYMENT:metadata.name,CONTAINER_IMAGE:spec.template.spec.containers[*].image.READY_REPLICAS:spec.replicas,NAMESPACE:metadata.namespace'
+```
+
+Create a new deployment called nginx-deploy, with image nginx:1.16 and 1 replica. Next upgrade the deployment to version 1.17 using rolling update. Make sure that the version upgrade is recorded in the resource annotation.
+
+Weight: 12
+
+    Image: nginx:1.16
+    Task: Upgrade the version of the deployment to 1:17
+    Task: Record the changes for the image upgrade
+
+```bash
+k create deploy nginx-deploy --image=nginx:1.16 --replicas=1 $do > nginx.yml
+k apply -f nginx.yml
+
+k set image deploy/nginx-deploy nginx=nginx:1.17 --record
+k rollout history deploy nginx-deploy
+```
+
+Create a pod called secret-1401 in the admin1401 namespace using the busybox image. The container within the pod should be called secret-admin and should sleep for 4800 seconds.
+
+```yaml
+k run secret-1401 --image=busybox -n admin1401 --command sleep 4800 $do > busybox.yml
+# Modify containers section 
+name: secret-admin
+
+# Volume part
+volumes:
+- name: dotfile-secret-v
+  secret:
+    secretName: dotfile-secret
+
+volumeMounts:
+- name: dotfile-secret-v
+  mountPath: /etc/secret-volume
+  readOnly: True
+```
+
+The container should mount a read-only secret volume called secret-volume at the path /etc/secret-volume. The secret being mounted has already been created for you and is called dotfile-secret.
 
 
 ---
