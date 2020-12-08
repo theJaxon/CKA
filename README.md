@@ -99,6 +99,7 @@ Kubernetes cluster consists of one or more master nodes + one or more worker nod
 ```bash
 k <command> -v=<number> # For verbose output, useful for debugging
 k cluster-info 
+k cluster-info dump
 k config -h
 k config view # View content of ~/.kube/config | /etc/kubernetes/admin.conf
 
@@ -107,9 +108,14 @@ k completion -h
 vi ~/.bashrc
 alias k=kubectl
 source <(kubectl completion bash | sed 's/kubectl/k/g')
+export do="--dry-run=client -o yaml"
 source ~/.bashrc
 
-export do="--dry-run=client -o yaml"
+vi ~/.vimrc
+set tabstop=2 shiftwidth=2 expandtab ai
+
+# if there's an issue with indentation https://stackoverflow.com/questions/426963/replace-tabs-with-spaces-in-vim
+:retab
 
 kubectl explain deploy
 
@@ -144,6 +150,8 @@ openssl x509 -in /etc/kubernetes/pki/<name>.crt -text -noout
 # ETCD certs 
 /etc/kubernetes/pki/etcd
 
+/etc/cni
+
 /etc/kubernetes/manifests # Static pods definition files that are used for bootstraping kubernetes are located here
   /etcd.yaml
   /kube-apiserver.yaml
@@ -156,7 +164,9 @@ $HOME/.kube/config # --kubeconfig file
 
 /var/lib/kubelet/config.yaml # kubelet config file that contains static pod path //usually /etc/kubernetes/manifests
 
-/var/logs/containers # logs are stored here 
+/var/log/pods # The output of kubectl log <pod> is coming from here with a different formatting
+
+/var/log/containers # docker logs are stored here 
 
 ```
 
@@ -204,6 +214,7 @@ k config --kubeconfig=<name> set-context <name> --cluster=<cluster-name> --names
 ---
 
 ### Important Documentation page sections:
+- [Tasks](https://kubernetes.io/docs/tasks/)
 
 - [kubeadm check required ports](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#check-required-ports) 
 
@@ -873,7 +884,26 @@ k explain pod.spec.securityContext
 
 ---
 
+### :diamonds: Services & Networking:
+
+#### :gem: 4. Know how to use Ingress controllers and Ingress resources:
+```bash
+# 1. Create an Ingress controller 
+k apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.34.1/deploy/static/provider/baremetal/deploy.yaml
+
+# Get the ports on which the ingress controller listens 
+k get svc -n ingress-nginx 
+
+# Test HTTP and HTTPS 
+curl <worker-ip>:<port-number>
+curl -k https://<worker-ip>:<port-number>
+
+```
+
+---
+
 ### :diamonds: Troubleshooting:
+* Logs of the pods are stored in the node running the pod at **`/var/log/pods`**
 
 ```bash
 k top nodes # metrics-server needs to be deployed
@@ -898,8 +928,8 @@ k logs <name> -n kube-system
 
 k describe po etcd-controller -n kube-system
 
-# Switch to kube-system namespace 
-k config set-context --current --namespace=kube-system
+# Logs at node level 
+
 ```
 
 #### :gem: Manage container stdout & stderr logs:
@@ -1357,6 +1387,73 @@ metadata:
   name: delayed-volume-sc
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
+```
+
+You are requested to change the URLs at which the applications are made available. Make the video application available at /stream.
+
+Ingress: ingress-wear-watch
+Path: /stream
+Backend Service: video-service
+Backend Service Port: 8080 
+
+```yaml
+k edit ingress -n app-space ingress-wear-watch
+
+spec:
+  rules:
+  - http:
+    paths:
+    - backend:
+      serviceName: video-service
+      servicePort: 8080
+    path: /stream
+```
+
+You are requested to add a new path to your ingress to make the food delivery application available to your customers. Make the new application available at /eat.
+
+Ingress: ingress-wear-watch
+Path: /eat
+Backend Service: food-service
+Backend Service Port: 8080 
+
+```yaml
+k edit ingress -n app-space ingress-wear-watch
+
+spec:
+  rules:
+    paths:
+    - path: /eat
+      backend:
+        serviceName: food-service
+        servicePort: 8080
+```
+
+You are requested to make the new application available at /pay.
+Identify and implement the best approach to making this application available on the ingress controller and test to make sure its working. Look into annotations: rewrite-target as well.
+
+Ingress Created
+Path: /pay
+Configure correct backend service
+Configure correct backend port
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pay-ingress
+  namespace: critical-space
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /pay
+        pathType: ImplementationSpecific
+        backend:
+          service: # k get svc --all-namespaces
+            name: pay-service
+            port: 8282
 ```
 
 
