@@ -103,6 +103,9 @@ k cluster-info dump
 k config -h
 k config view # View content of ~/.kube/config | /etc/kubernetes/admin.conf
 
+k get events # Displays events for the current ns 
+k get events -n <ns>
+
 # Auto completion enable
 k completion -h 
 vi ~/.bashrc
@@ -366,6 +369,7 @@ Steps explained:
 openssl genrsa -out <name>.key 2048
 
 # 2. Create a CSR and encode it 
+# Search docs for authentication or User word
 openssl req -new -key <name>.key -out <name>.csr -subj "/CN=<name>"
 cat <name>.csr | base64 | tr -d '\n'
 
@@ -946,7 +950,21 @@ k describe po etcd-controller -n kube-system
 # View logs from all containers with specific label in a specific ns 
 k logs -l k=v --all-containers -n <ns> 
 
+```
 
+#### :gem: Multiple Schedulers:
+```bash
+# From documentation get the page about multi schedulers
+# https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/
+k apply -f my-scheduler.yml
+k edit clusterrole system:kube-scheduler
+resourceNames:
+- kube-scheduler
+- my-scheduler # Add this 
+
+# When creating a pod just add
+k explain pod.spec.schedulerName
+schedulerName: 
 ```
 
 ---
@@ -1518,6 +1536,215 @@ volumeMounts:
 
 The container should mount a read-only secret volume called secret-volume at the path /etc/secret-volume. The secret being mounted has already been created for you and is called dotfile-secret.
 
+
+Create a Pod called redis-storage with image: redis:alpine with a Volume of type emptyDir that lasts for the life of the Pod. Specs on the right.
+
+Pod named 'redis-storage' created
+Pod 'redis-storage' uses Volume type of emptyDir
+Pod 'redis-storage' uses volumeMount with mountPath = /data/redis 
+
+```yaml
+k run redis-storage --image=redis:alpine $do > redis-storage.yml
+vi redis-storage.yml
+
+spec:
+  volumes:
+  - name: redis-storage-v
+    emptyDir: {}
+
+  containers:
+  - image: redis:alpine
+    name: redis-storage
+    volumeMounts:
+    - name: redis-storage-v
+      mountPath: /data/redis
+```
+
+Create a new pod called super-user-pod with image busybox:1.28. Allow the pod to be able to set system_time
+
+The container should sleep for 4800 seconds
+
+Pod: super-user-pod
+Container Image: busybox:1.28
+SYS_TIME capabilities for the conatiner?
+
+```yaml
+k run super-user-pod --image=busybox:1.28 $do > super-user-pod.yml --command sleep 4800
+k explain pod.spec.containers.securityContext
+vi super-user-pod.yml
+
+containers:
+- command:
+  - sleep
+  - "4800"
+  image: busybox:1.28
+  name: super-user-pod
+  securityContext:
+    capabilities:
+      add:
+        - SYS_TIME
+```
+
+Create a new deployment called nginx-deploy, with image nginx:1.16 and 1 replica. Record the version. Next upgrade the deployment to version 1.17 using rolling update. Make sure that the version upgrade is recorded in the resource annotation.
+
+Deployment : nginx-deploy. Image: nginx:1.16
+Image: nginx:1.16
+Task: Upgrade the version of the deployment to 1:17
+Task: Record the changes for the image upgrade 
+
+```yaml
+k create deploy nginx-deploy --image=nginx:1.16 --replicas=1 $do > nginx-16.yml
+k apply -f nginx-16.yml
+k annotate deploy/nginx-deploy kubernetes.io/change-cause="1.16"
+k set image deploy/nginx-deploy nginx=nginx:1.17 --record
+k rollout history deploy/nginx-deploy
+```
+
+Create a new user called john. Grant him access to the cluster. John should have permission to create, list, get, update and delete pods in the development namespace . The private key exists in the location: /root/CKA/john.key and csr at /root/CKA/john.csr
+
+Important Note: As of kubernetes 1.19, the CertificateSigningRequest object expects a signerName.
+
+Please refer documentation below to see the example usage:
+https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#create-certificate-request-kubernetes-object
+
+CSR: john-developer Status:Approved
+Role Name: developer, namespace: development, Resource: Pods
+Access: User 'john' has appropriate permissions 
+
+Create an nginx pod called nginx-resolver using image nginx, expose it internally with a service called nginx-resolver-service. Test that you are able to look up the service and pod names from within the cluster. Use the image: busybox:1.28 for dns lookup. Record results in /root/CKA/nginx.svc and /root/CKA/nginx.pod
+
+Pod: nginx-resolver created
+Service DNS Resolution recorded correctly
+Pod DNS resolution recorded correctly 
+
+```bash
+k run nginx-resolver --image=nginx $do > nginx.yml
+k apply -f nginx.yml
+k expose pod nginx-resolver --port=80 --target-port=80 --name=nginx-resolver-service
+```
+
+Create a new service account with the name pvviewer. 
+Grant this Service account access to list all PersistentVolumes in the cluster by creating an appropriate cluster role called pvviewer-role and ClusterRoleBinding called pvviewer-role-binding.
+Next, create a pod called pvviewer with the image: redis and serviceAccount: pvviewer in the default namespace
+
+ServiceAccount: pvviewer
+ClusterRole: pvviewer-role
+ClusterRoleBinding: pvviewer-role-binding
+Pod: pvviewer
+Pod configured to use ServiceAccount pvviewer ? 
+
+```bash
+k create sa pviewer
+k create clusterrole pviewer-role -h 
+k create clusterrole pviewer-role --verb=list --resource=pv
+k create clusterrolebinding pviewer-role-binding --clusterrole=pviewer-role --serviceaccount=default:pviewer
+k run pviewer --image=redis --serviceaccount=pviewer $do > pviewer.yml
+k apply -f pviewer.yml
+```
+
+List the InternalIP of all nodes of the cluster. Save the result to a file /root/CKA/node_ips
+
+Answer should be in the format: InternalIP of master<space>InternalIP of node1<space>InternalIP of node2<space>InternalIP of node3 (in a single line)
+```
+k get nodes -o jsonpath='{.items[*].status.addresses[*].address}' > /root/CKA/node_ips
+```
+
+Create a pod called multi-pod with two containers.
+Container 1, name: alpha, image: nginx
+Container 2: beta, image: busybox, command sleep 4800.
+
+Environment Variables:
+container 1:
+name: alpha
+
+Container 2:
+name: beta
+
+Pod Name: multi-pod
+Container 1: alpha
+Container 2: beta
+Container beta commands set correctly?
+Container 1 Environment Value Set
+Container 2 Environment Value Set
+
+```yaml
+k run multi-pod --image=busybox --env=name=beta $do > multi-pod.yml --command sleep 4800
+vi multi-pod.yml
+
+containers:
+- name: alpha
+  image: nginx 
+  env:
+  - name: name
+    value: alpha
+```
+
+Create a Pod called non-root-pod , image: redis:alpine
+runAsUser: 1000
+fsGroup: 2000
+
+```yaml
+k run non-root-pod --image=redis:alpine $do > non-root-pod.yml
+vi non-root-pod.yml
+
+spec:
+  securityContext: 
+    runAsUser: 1000
+    fsGroup: 2000
+  containers:
+  - image: redis:alpine
+    name: non-root-pod
+```
+
+We have deployed a new pod called np-test-1 and a service called np-test-service.
+Incoming connections to this service are not working. Troubleshoot and fix it.
+Create NetworkPolicy, by the name ingress-to-nptest that allows incoming connections to the service over port 80
+
+Important: Don't delete any current objects deployed.
+
+Important: Don't Alter Existing Objects!
+NetworkPolicy: Applied to All sources (Incoming traffic from all pods)?
+NetWorkPolicy: Correct Port?
+NetWorkPolicy: Applied to correct Pod? 
+
+Taint the worker node node01 to be Unschedulable. 
+Once done, create a pod called dev-redis, image redis:alpine to ensure workloads are not scheduled to this worker node.
+Finally, create a new pod called prod-redis and image redis:alpine with toleration to be scheduled on node01.
+
+key:env_type, value:production, operator: Equal and effect:NoSchedule
+
+Key = env_type
+Value = production
+Effect = NoSchedule
+pod 'dev-redis' (no tolerations) is not scheduled on node01?
+Create a pod 'prod-redis' to run on node01
+
+```yaml
+k taint node01 -h 
+k taint node01 env_type=production:NoSchedule
+k run dev-redis --image=redis:alpine
+k run prod-redis --image=redis:alpine $do > prod-redis.yml 
+vi prod-redis.yml
+spec:
+  nodeName: node01
+  tolerations:
+  - key: env_type
+    value: production
+    operator: "Equal"
+    effect: "NoSchedule"
+```
+
+Create a pod called hr-pod in hr namespace belonging to the production environment and frontend tier .
+image: redis:alpine
+Use appropriate labels and create all the required objects if it does not exist in the system already.
+
+hr-pod labeled with environment production?
+hr-pod labeled with frontend tier? 
+
+```
+k create ns hr
+k run hr-pod --image=redis:alpine -n hr -l tier=frontend,environment=production $do > hr-pod.yml
+```
 
 ---
 
