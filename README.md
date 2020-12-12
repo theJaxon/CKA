@@ -96,6 +96,11 @@ Kubernetes cluster consists of one or more master nodes + one or more worker nod
 
 ### [Important kubectl commands](https://blog.heptio.com/kubectl-explain-heptioprotip-ee883992a243):
 
+**--recursive** with `k explain`
+```
+k explain pod.spec.containers --recursive | less
+```
+
 ```bash
 k <command> -v=<number> # For verbose output, useful for debugging
 k cluster-info 
@@ -120,16 +125,16 @@ set tabstop=2 shiftwidth=2 expandtab ai
 # if there's an issue with indentation https://stackoverflow.com/questions/426963/replace-tabs-with-spaces-in-vim
 :retab
 
-kubectl explain deploy
+k explain deploy
 
 # Check all fields in a resource
-kubectl explain <resource> --recursive # resource can be pod, deployment, ReplicaSet etc
+k explain <resource> --recursive # resource can be pod, deployment, ReplicaSet etc
 
-kubectl explain deploy.spec.strategy
+k explain deploy.spec.strategy
 
-kubectl config -h
+k config -h
 
-kubectl proxy # runs on port 8001 by default 
+k proxy # runs on port 8001 by default 
 # use curl http://localhost:8801 -k to see a list of API groups
 
 # NOT kubectl but useful
@@ -137,11 +142,9 @@ journalctl -u kubelet
 journalctl -u kube-apiserver
 
 # Dry run and validate
-kubectl apply -f fileName.yml --validate --dry-run=client
+k apply -f fileName.yml --validate --dry-run=client
 
-# View certificate (Decoded) 
-openssl x509 -in /etc/kubernetes/pki/<name>.crt -text -noout
-
+kubelet -h
 ```
 
 ---
@@ -601,6 +604,9 @@ k --context=<context-name> <verb> <object> <name>
 # 1. initialize the cluster and the first control plane
 sudo kubeadm init
 
+# Initialize from a given config file 
+kubeadm init --conf=/<path>/<file>.cfg
+
 # 2. Install Pod Network Addon [Flannel, Calico, etc ..]
 k apply -f <Network-addon>.yml
 
@@ -622,10 +628,10 @@ sudo kubeadm join <control-plane-host>:<control-plane-port> \
 #### :gem: 5- Perform a version upgrade on a Kubernetes cluster using Kubeadm
 Refer to [kubeadm upgrade docs](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
 ```bash
+# Master node
 # Drain the node 
-k drain <node> --ignore-daemonsets
-apt-get update
-apt-get install kubeadm=1.19.x -y
+k drain <node> --ignore-daemonsets --delete-local-data
+apt-get update && apt-get install -y kubeadm=1.19.x
 sudo kubeadm upgrade plan
 sudo kubeadm upgrade apply v1.19.x
 
@@ -636,6 +642,9 @@ systemctl restart kubelet
 
 # Uncordon the node
 k uncordon <node>
+
+# Worker node 
+k drain <node> --ignore-daemonsets --delete-local-data
 ```
 
 #### :gem: 6- Implement etcd backup and restore
