@@ -176,6 +176,7 @@ $HOME/.kube/config # --kubeconfig file
 
 /var/log/containers # docker logs are stored here 
 
+/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 
 * API Serves on port `6443` by default
@@ -266,6 +267,8 @@ k set resources deploy/<name> --requests=cpu=200m,memory=512Mi --limits=cpu=500m
 # Create HorizontalPodAutoscaler resource [HPA] for a deployment
 k autoscale deploy <name> --min=<number> --max=<number> --cpu-percent=<number>
 k get hpa
+
+k get all 
 
 # Create a secret 
 k create secret generic <name> --from-literal=K=v
@@ -605,7 +608,7 @@ k --context=<context-name> <verb> <object> <name>
 sudo kubeadm init
 
 # Initialize from a given config file 
-kubeadm init --conf=/<path>/<file>.cfg
+kubeadm init --config=/<path>/<file>.cfg
 
 # 2. Install Pod Network Addon [Flannel, Calico, etc ..]
 k apply -f <Network-addon>.yml
@@ -1755,7 +1758,313 @@ k create ns hr
 k run hr-pod --image=redis:alpine -n hr -l tier=frontend,environment=production $do > hr-pod.yml
 ```
 
+Create a cluster using kubeadm 
+# https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+```bash
+kubeadm init 
+# In case you're provided with a config file 
+kubeadm init --config=<name>.conf
+
+# This will generate the join command that can be executed on the worker nodes
+# Install network add-on
+# https://v1-17.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network
+k apply -f <network-addon>.yml
+
+# On worker nodes
+kubeadm join 
+
+# Validate
+k get nodes
+```
+
+Create a pod that runs the latest alpine image, it should be configured to sleep 3600 seconds and it should be created in the mynamespace namespace, ensure that the pod gets restarted automatically if it fails.
+
+```bash
+# 1- Create the Namespace
+k create ns mynamespace $do > mynamespace.yml
+k apply -f mynamespace.yml
+
+k run alpine --image=alpine:latest --restart=OnFailure -n mynamespace $do > alpine.yml --command sleep 3600
+k apply -f alpine.yml
+
+# Verify
+$ k get po -n mynamespace
+NAME     READY   STATUS    RESTARTS   AGE
+alpine   1/1     Running   0          31s
+```
+
+Configure a pod that runs 2 containers. The first container should create the file `/data/runfile.txt`. The second container should only start once this file has been created and it should run sleep 10000 as its task.
+
+# 1- create a bash script that will check if the file exists and if it does then sleep command is executed
+```bash
+vi sleep-if-exists.sh
+#!/bin/bash
+if [ -f /data/runfile.txt ]
+then
+  sleep "10000"
+fi
+```
+
+# 2- The bash script is stored in a configMap and will be used by the 2nd container 
+```
+k create cm sleep-if-exists --from-file=sleep-if-exists.sh
+```
+
+```yml
+k run busybox --image=busybox $do > multi-container.yml --command touch /data/runfile.txt 
+
+# Create a configMap to hold our bash script
+vi multi-container.yml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: busybox
+  name: busybox
+spec:
+  volumes:
+    # Shared volume that will be mounted in both containers
+  - name: shared-v
+    emptyDir: {}
+    # Bash script is stored in this CM and will be used by the 2nd container
+  - name: sleep-if-exists
+    configMap:
+      name: sleep-if-exists
+  initContainers:
+  - command:
+    - touch
+    - /data/runfile.txt
+    image: busybox
+    name: busybox
+    volumeMounts:
+    - name: shared-v
+      mountPath: /data
+  containers:
+  - name: sleep
+    image: busybox
+    volumeMounts:
+    - name: sleep-if-exists
+      mountPath: /tmp
+    - name: shared-v
+      mountPath: /data
+    command:
+    - "/bin/sh"
+    - "/tmp/sleep-if-exists.sh"
+```
+
+Create a Persistent Volume that uses local host storage. This PV should be accessible from all namespaces. Run a pod with the name `pv-pod` that uses this persistent volume from the `myvol` namespace.
+
+```bash
+k create ns myvol $do > myvol.yml
+k apply -f myvol.yml
+k explain pv # follow the link to the documentation and copy the example
+vim pv.yml
+```
+pv.yml
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mypv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp
+```
+
+```bash
+k apply -f pv.yml
+# Create PVC 
+k explain pvc # follow docs link
+vi pvc.yml
+```
+
+```yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mypvc
+  namespace: myvol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 5Gi
+```
+
+```bash
+k apply -f pvc.yml
+k run pv-pod --image=busybox -n myvol $do > pv-pod.yml --command sleep 3600
+vim pv-pod.yml
+```
+```yml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: pv-pod
+  name: pv-pod
+  namespace: myvol
+spec:
+  volumes:
+  - name: devops-v
+    persistentVolumeClaim:
+      claimName: mypvc
+  containers:
+  - command:
+    - sleep
+    - "3600"
+    image: busybox
+    name: pv-pod
+    volumeMounts:
+    - name: devops-v
+      mountPath: /devops
+```
+```bash
+k apply -f pv-pod.yml
+```
+
+In the run-once namespace, run a pod with the name xxazz-pod using the alpine image and the command sleep 3600. Create the namespace if needed, ensure that the task in the pod runs once and after running once the pod stops.
+
+```bash
+k create ns run-once $do > run-once.yml
+k apply -f run-once.yml
+k create job xxazz-pod --image=alpine --namespace=run-once $do > xxazz-pod.yml -- sleep 3600
+k apply -f xxazz-pod.yml
+```
+
+Create deployment that runs nginx based on 1.14 version. After creating it enable recording and perform a rolling upgrade to upgrade to the latest nginx version.
+After successfully performing the upgrade undo the upgrade again.
+```bash
+k create deploy nginx --image=nginx:1.14 $do > nginx.yml
+k apply -f nginx.yml
+k set image deploy nginx nginx=nginx:latest --record
+k rollout undo deployment nginx 
+```
+
+Find all kubernetes objects in all namespaces that have the label k8s-app set tp the value kube-dns
+```bash
+k get all -A -l k8s-app=kube-dns
+```
+
+Create a configMap that defines the variable myuser=mypassword.
+Create a pod that runs alpine and uses this variable from the ConfigMap
+```bash
+k create cm myuser --from-literal=myuser=mypassword $do > myuser.yml
+k apply -f myuser.yml
+k run alpine --image=alpine $do > alpine.yml
+k apply -f alpine.yml
+k set env po/alpine --from=cm/myuser $do > alpine.yml
+k delete po alpine --force --grace-period=0
+k apply -f alpine.yml
+```
+
+Create a solution that runs multiple pods in parallel. The solution should start Nginx and ensure that it is started on every node in the cluster in a way that if a new node is added, an Nginx pod is automatically added to the node as well.
+```
+k create deploy nginx --image=nginx $do > nginx.yml
+vi nginx.yml
+```
+```yml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx
+    spec:
+      # Allow scheduling on master node
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: "Equal"
+      containers:
+      - image: nginx
+        name: nginx
+```
+
+Mark node worker2 as unavailable and ensure all pods are moved away from the local node and started again somewhere else 
+```
+k drain kworker2.example.com --ignore-daemonsets --delete-local-data
+```
+After successfully executing this task make sure worker2 can be used again
+```
+k uncordon kworker2.example.com
+```
+
+Put worker2 in maintenance mode so that no new pods can be scheduled on it 
+```
+k cordon kworker2.example.com
+```
+
+After successfully executing this task undo it 
+```
+k uncordon kworker2.example.com
+```
+
+Create a backup of the etcd database. Write the backup to /var/exam/etcd-backup
+```bash
+mkdir -p /var/exam/etcd-backup
+ETCDCTL_API=3 etcdctl snapshot save \ 
+--cacert /etc/kubernetes/pki/etcd/ca.crt \ 
+--cert /etc/kubernetes/pki/etcd/server.crt \ 
+--key /etc/kubernetes/pki/etcd/server.key 
+/var/exam/etcd-backup/etcd.db
+
+$ ETCDCTL_API=3 etcdctl snapshot status --write-out="table" /var/exam/etcd-backup/etcd.db
++----------+----------+------------+------------+
+|   HASH   | REVISION | TOTAL KEYS | TOTAL SIZE |
++----------+----------+------------+------------+
+| b59c7550 |  1497728 |       1449 |     5.8 MB |
++----------+----------+------------+------------+
+```
+
+Start a pod that runs busybox image. use the name `busy33` for this pod. Expose this pod on a cluster IP address. Configure the pod and service such that DNS name resolution is possible, and use `nslookup` command to look up the names of both. write the output of DNS lookup command to /var/exam/dnsnames.txt
+```bash
+# DNS Doesn't work correctly on latest busybox so use image <= 1.28
+k run busy33 --image=busybox:1.28 $do > busy33.yml --command sleep 3600
+k apply -f busy33.yml
+k expose pod busy33 --port=53 --target-port=53 --type=ClusterIP
+k exec -it busy33 -- sh 
+
+/ # nslookup busy33
+Server:    10.96.0.10
+Address 1: 10.96.0.10
+
+Name:      busy33
+Address 1: 10.244.2.177 busy33
+```
+
+Configure your node worker2 to auto start a pod that runs an Nginx webserver using the name auto-web
+```bash
+k run nginx --image=nginx $do > nginx.yml
+scp nginx.yml vagrant@kworker2.example.com:/etc/kubernetes/manifests/
+```
+
+Find the pod with the highest CPU load 
+```
+k top pod --sort-by=cpu -A | head -n 2
+```
+
 ---
+
+
 
 ### Good to know:
 - Creating custom resource definitions [crd]
