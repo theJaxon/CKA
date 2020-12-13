@@ -1758,8 +1758,7 @@ k create ns hr
 k run hr-pod --image=redis:alpine -n hr -l tier=frontend,environment=production $do > hr-pod.yml
 ```
 
-Create a cluster using kubeadm 
-# https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+Create a cluster using [kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/) 
 ```bash
 kubeadm init 
 # In case you're provided with a config file 
@@ -1795,7 +1794,7 @@ alpine   1/1     Running   0          31s
 
 Configure a pod that runs 2 containers. The first container should create the file `/data/runfile.txt`. The second container should only start once this file has been created and it should run sleep 10000 as its task.
 
-# 1- create a bash script that will check if the file exists and if it does then sleep command is executed
+1- create a bash script that will check if the file exists and if it does then sleep command is executed
 ```bash
 vi sleep-if-exists.sh
 #!/bin/bash
@@ -1805,7 +1804,7 @@ then
 fi
 ```
 
-# 2- The bash script is stored in a configMap and will be used by the 2nd container 
+2- The bash script is stored in a configMap and will be used by the 2nd container 
 ```
 k create cm sleep-if-exists --from-file=sleep-if-exists.sh
 ```
