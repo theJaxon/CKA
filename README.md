@@ -2052,7 +2052,7 @@ Address 1: 10.244.2.177 busy33
 
 Configure your node worker2 to auto start a pod that runs an Nginx webserver using the name auto-web
 ```bash
-k run nginx --image=nginx $do > nginx.yml
+k run auto-web --image=nginx $do > nginx.yml
 scp nginx.yml vagrant@kworker2.example.com:/etc/kubernetes/manifests/
 ```
 
