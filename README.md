@@ -2,7 +2,7 @@
 ![CKA](https://img.shields.io/badge/-CKA-0690FA?style=for-the-badge&logo=kubernetes&logoColor=white)
 ![K8s](https://img.shields.io/badge/-kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
 
-An environment made as a preparation for the Certified Kubernetes Administrator exam [CKA v1.19]
+An environment made as a preparation for the Certified Kubernetes Administrator exam [CKA v1.29]
 
 ---
 
@@ -110,6 +110,8 @@ k config view # View content of ~/.kube/config | /etc/kubernetes/admin.conf
 
 k get events # Displays events for the current ns 
 k get events -n <ns>
+# Filter out normal events so that warnings are better shown
+k get events --field-selector type!=Normal 
 
 # Auto completion enable
 k completion -h 
