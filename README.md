@@ -668,11 +668,13 @@ ETCDCTL_API=3 etcdctl snapshot save -h
 ps aux | grep etcd
 
 # From the help we figure the parameters needed as 
-# --cacert --cert --key --endpoints
-ETCDCTL_API=3 etcdctl \
+# --cacert --cert --key
+export ETCDCTL_API=3
+
+etcdctl \
 --cacert=/etc/kubernetes/pki/etcd/ca.crt \
---cert=/etc/kubernetes/pki/apiserver-etcd-client.crt \
---key=/etc/kubernetes/pki/apiserver-etcd-client.key snapshot save <location>
+--cert /etc/kubernetes/pki/etcd/server.crt \
+--key /etc/kubernetes/pki/etcd/server.key snapshot save <location>
 ```
 * Create a backup of ETCD database (API V3 is used), write the backup to `/var/exam/etcd-backup`
 
